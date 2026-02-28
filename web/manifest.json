@@ -1,6 +1,6 @@
 {
-    "name": "real_insta",
-    "short_name": "real_insta",
+    "name": "Real-Insta",
+    "short_name": "Real-Insta",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

@@ -59,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
-                  'Real Insta',
+                  'Real-Insta',
                   style: TextStyle(fontSize: 36, fontWeight: FontWeight.w700, color: AppColors.text),
                 ),
                 const SizedBox(height: 8),

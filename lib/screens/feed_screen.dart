@@ -78,7 +78,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Real Insta', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+        title: const Text('Real-Insta', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
         centerTitle: false,
         actions: [
           Badge(

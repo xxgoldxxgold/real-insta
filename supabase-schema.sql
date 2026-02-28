@@ -1,5 +1,5 @@
 -- ============================================
--- RealInsta Database Schema (ri_ prefix)
+-- Real-Insta Database Schema (ri_ prefix)
 -- gc2.jp Supabase プロジェクト内に追加
 -- ============================================
 

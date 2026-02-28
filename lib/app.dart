@@ -65,7 +65,7 @@ class RealInstaApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AppState(),
       child: MaterialApp.router(
-        title: 'Real Insta',
+        title: 'Real-Insta',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           scaffoldBackgroundColor: AppColors.bg,

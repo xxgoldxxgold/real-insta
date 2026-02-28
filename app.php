@@ -1,4 +1,4 @@
-<?php // RealInsta - Main App SPA ?>
+<?php // Real-Insta - Main App SPA ?>
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>Real Insta</title>
+<title>Real-Insta</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
@@ -804,7 +804,7 @@ function renderNav(nav) {
 // ============================================
 async function renderFeed(header, content) {
   header.innerHTML = `<div class="header">
-    <div class="header-logo">Real Insta</div>
+    <div class="header-logo">Real-Insta</div>
     <div class="dm-header-icon" id="open-dm-btn">
       ${icons.dm}
       <span class="dm-badge" id="dm-badge" style="display:none"></span>
@@ -1744,7 +1744,7 @@ function renderSettings(header, content) {
     <div class="settings-group">
       <div class="settings-item danger" id="set-delete">アカウントを削除</div>
     </div>
-    <div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:12px">Real Insta v1.0.0</div>
+    <div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:12px">Real-Insta v1.0.0</div>
   `;
 
   content.querySelector('#set-logout').onclick = async () => {
