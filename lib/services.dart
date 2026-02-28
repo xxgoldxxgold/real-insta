@@ -36,7 +36,7 @@ class AuthService {
   }
 
   static String get _redirectUrl {
-    return 'https://real-insta.com';
+    return 'https://real-insta.com/';
   }
 }
 

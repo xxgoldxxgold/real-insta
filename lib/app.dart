@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +14,20 @@ import 'screens/settings_screen.dart';
 import 'screens/hashtag_screen.dart';
 import 'screens/inbox_screen.dart';
 import 'screens/thread_screen.dart';
+
+class AuthNotifier extends ChangeNotifier {
+  AuthNotifier() {
+    _sub = AuthService.authStateChanges.listen((_) => notifyListeners());
+  }
+  late final StreamSubscription _sub;
+  @override
+  void dispose() {
+    _sub.cancel();
+    super.dispose();
+  }
+}
+
+final _authNotifier = AuthNotifier();
 
 class AppState extends ChangeNotifier {
   int unreadNotifications = 0;
@@ -76,17 +91,13 @@ class RealInstaApp extends StatelessWidget {
 
 final _router = GoRouter(
   initialLocation: '/',
+  refreshListenable: _authNotifier,
   redirect: (context, state) {
     final loggedIn = AuthService.currentUser != null;
     final loggingIn = state.matchedLocation == '/login';
-    final onboarding = state.matchedLocation == '/onboarding';
 
     if (!loggedIn && !loggingIn) return '/login';
     if (loggedIn && loggingIn) return '/';
-    if (loggedIn && !onboarding) {
-      // Check if user needs onboarding (no username)
-      // This is handled in HomeScreen
-    }
     return null;
   },
   routes: [
