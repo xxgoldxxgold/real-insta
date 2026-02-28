@@ -727,7 +727,7 @@ async function loadFeedPosts(page) {
 
   // Get following IDs
   const { data: follows } = await sb
-    .from('follows')
+    .from('ri_follows')
     .select('following_id')
     .eq('follower_id', state.user.id);
 
@@ -735,7 +735,7 @@ async function loadFeedPosts(page) {
   followingIds.push(state.user.id); // include own posts
 
   const { data } = await sb
-    .from('posts')
+    .from('ri_posts')
     .select('*, profiles:user_id(id, username, avatar_url, display_name)')
     .in('user_id', followingIds)
     .order('created_at', { ascending: false })
@@ -746,7 +746,7 @@ async function loadFeedPosts(page) {
   // Get like status for these posts
   const postIds = data.map(p => p.id);
   const { data: myLikes } = await sb
-    .from('likes')
+    .from('ri_likes')
     .select('post_id')
     .eq('user_id', state.user.id)
     .in('post_id', postIds);
@@ -755,7 +755,7 @@ async function loadFeedPosts(page) {
 
   // Get comment counts
   const { data: commentCounts } = await sb
-    .from('comments')
+    .from('ri_comments')
     .select('post_id')
     .in('post_id', postIds);
 
@@ -851,9 +851,9 @@ async function toggleLike(post, card) {
   btn.innerHTML = post.liked ? icons.heartFill : icons.heart;
 
   if (post.liked) {
-    await sb.from('likes').insert({ user_id: state.user.id, post_id: post.id });
+    await sb.from('ri_likes').insert({ user_id: state.user.id, post_id: post.id });
   } else {
-    await sb.from('likes').delete().eq('user_id', state.user.id).eq('post_id', post.id);
+    await sb.from('ri_likes').delete().eq('user_id', state.user.id).eq('post_id', post.id);
   }
 }
 
@@ -868,7 +868,7 @@ function showPostMenu(post) {
     del.onclick = async () => {
       overlay.remove();
       if (confirm('この投稿を削除しますか？')) {
-        await sb.from('posts').delete().eq('id', post.id);
+        await sb.from('ri_posts').delete().eq('id', post.id);
         toast('投稿を削除しました');
         render();
       }
@@ -882,7 +882,7 @@ function showPostMenu(post) {
     const block = el('div', { className: 'modal-item danger' }, 'このユーザーをブロック');
     block.onclick = async () => {
       overlay.remove();
-      await sb.from('blocks').insert({ blocker_id: state.user.id, blocked_id: post.user_id });
+      await sb.from('ri_blocks').insert({ blocker_id: state.user.id, blocked_id: post.user_id });
       toast('ブロックしました');
       render();
     };
@@ -913,7 +913,7 @@ function showReportModal(post) {
   reasons.forEach(r => {
     const opt = el('div', { className: 'report-option' }, r.label);
     opt.onclick = async () => {
-      await sb.from('reports').insert({ reporter_id: state.user.id, post_id: post.id, reason: r.val });
+      await sb.from('ri_reports').insert({ reporter_id: state.user.id, post_id: post.id, reason: r.val });
       overlay.remove();
       toast('通報を送信しました');
     };
@@ -958,7 +958,7 @@ async function renderExplore(header, content) {
       gridDiv.style.display = 'none';
       if (q.startsWith('#')) {
         const tag = q.slice(1);
-        const { data } = await sb.from('hashtags').select('name').ilike('name', `${tag}%`).limit(20);
+        const { data } = await sb.from('ri_hashtags').select('name').ilike('name', `${tag}%`).limit(20);
         resultsDiv.innerHTML = '';
         (data || []).forEach(h => {
           const item = el('div', { className: 'search-user-item', style: 'cursor:pointer' });
@@ -967,7 +967,7 @@ async function renderExplore(header, content) {
           resultsDiv.appendChild(item);
         });
       } else {
-        const { data } = await sb.from('profiles').select('*').or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).limit(20);
+        const { data } = await sb.from('ri_profiles').select('*').or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).limit(20);
         resultsDiv.innerHTML = '';
         (data || []).forEach(u => {
           const item = el('div', { className: 'search-user-item', style: 'cursor:pointer' });
@@ -990,7 +990,7 @@ async function renderExplore(header, content) {
 
 async function loadExploreGrid(container) {
   const { data } = await sb
-    .from('posts')
+    .from('ri_posts')
     .select('id, image_url')
     .order('created_at', { ascending: false })
     .limit(30);
@@ -1158,10 +1158,10 @@ function openCreatePost() {
       // Upload image
       const blob = await (await fetch(state.capturedImage)).blob();
       const filename = `${state.user.id}/${Date.now()}.jpg`;
-      const { error: uploadErr } = await sb.storage.from('posts').upload(filename, blob, { contentType: 'image/jpeg' });
+      const { error: uploadErr } = await sb.storage.from('ri-posts').upload(filename, blob, { contentType: 'image/jpeg' });
       if (uploadErr) throw uploadErr;
 
-      const { data: urlData } = sb.storage.from('posts').getPublicUrl(filename);
+      const { data: urlData } = sb.storage.from('ri-posts').getPublicUrl(filename);
       const imageUrl = urlData.publicUrl;
 
       const caption = view.querySelector('#caption-input').value.trim();
@@ -1176,7 +1176,7 @@ function openCreatePost() {
       // Check if within 5 minutes (always true for fresh capture)
       const isVerified = true;
 
-      const { error: postErr } = await sb.from('posts').insert({
+      const { error: postErr } = await sb.from('ri_posts').insert({
         user_id: state.user.id,
         image_url: imageUrl,
         caption: caption || null,
@@ -1214,18 +1214,18 @@ async function renderPostDetail(header, content, postId) {
   content.innerHTML = '<div class="spinner"></div>';
 
   const { data: post } = await sb
-    .from('posts')
+    .from('ri_posts')
     .select('*, profiles:user_id(id, username, avatar_url, display_name)')
     .eq('id', postId)
     .single();
 
   if (!post) { content.innerHTML = '<div class="empty-state"><p>投稿が見つかりません</p></div>'; return; }
 
-  const { data: myLike } = await sb.from('likes').select('id').eq('user_id', state.user.id).eq('post_id', postId).maybeSingle();
+  const { data: myLike } = await sb.from('ri_likes').select('id').eq('user_id', state.user.id).eq('post_id', postId).maybeSingle();
   post.liked = !!myLike;
 
   const { data: comments } = await sb
-    .from('comments')
+    .from('ri_comments')
     .select('*, profiles:user_id(id, username, avatar_url)')
     .eq('post_id', postId)
     .order('created_at', { ascending: true })
@@ -1268,7 +1268,7 @@ async function renderPostDetail(header, content, postId) {
     const text = inp.value.trim();
     if (!text) return;
     sendBtn.disabled = true;
-    await sb.from('comments').insert({ user_id: state.user.id, post_id: postId, content: text });
+    await sb.from('ri_comments').insert({ user_id: state.user.id, post_id: postId, content: text });
     inp.value = '';
     renderPostDetail(header, content, postId);
   };
@@ -1287,7 +1287,7 @@ async function renderComments(header, content, postId) {
   content.innerHTML = '<div class="spinner"></div>';
 
   const { data: comments } = await sb
-    .from('comments')
+    .from('ri_comments')
     .select('*, profiles:user_id(id, username, avatar_url)')
     .eq('post_id', postId)
     .order('created_at', { ascending: true });
@@ -1331,7 +1331,7 @@ async function renderComments(header, content, postId) {
     const text = inp.value.trim();
     if (!text) return;
     sendBtn.disabled = true;
-    await sb.from('comments').insert({ user_id: state.user.id, post_id: postId, content: text });
+    await sb.from('ri_comments').insert({ user_id: state.user.id, post_id: postId, content: text });
     renderComments(header, content, postId);
   };
 }
@@ -1345,7 +1345,7 @@ async function renderNotifications(header, content) {
   content.innerHTML = '<div class="spinner"></div>';
 
   const { data } = await sb
-    .from('notifications')
+    .from('ri_notifications')
     .select('*, actor:actor_id(id, username, avatar_url), post:post_id(id, image_url)')
     .eq('user_id', state.user.id)
     .order('created_at', { ascending: false })
@@ -1381,7 +1381,7 @@ async function renderNotifications(header, content) {
   });
 
   // Mark all as read
-  await sb.from('notifications').update({ is_read: true }).eq('user_id', state.user.id).eq('is_read', false);
+  await sb.from('ri_notifications').update({ is_read: true }).eq('user_id', state.user.id).eq('is_read', false);
 }
 
 // ============================================
@@ -1390,7 +1390,7 @@ async function renderNotifications(header, content) {
 async function renderProfile(header, content, userId) {
   const isMe = userId === state.user.id;
 
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', userId).single();
+  const { data: profile } = await sb.from('ri_profiles').select('*').eq('id', userId).single();
   if (!profile) { content.innerHTML = '<div class="empty-state"><p>ユーザーが見つかりません</p></div>'; return; }
 
   // Header
@@ -1410,12 +1410,12 @@ async function renderProfile(header, content, userId) {
   }
 
   // Stats
-  const { count: postCount } = await sb.from('posts').select('*', { count: 'exact', head: true }).eq('user_id', userId);
+  const { count: postCount } = await sb.from('ri_posts').select('*', { count: 'exact', head: true }).eq('user_id', userId);
 
   let followerCount = '-', followingCount = '-';
   if (isMe) {
-    const { count: fc } = await sb.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId);
-    const { count: fic } = await sb.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId);
+    const { count: fc } = await sb.from('ri_follows').select('*', { count: 'exact', head: true }).eq('following_id', userId);
+    const { count: fic } = await sb.from('ri_follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId);
     followerCount = fc || 0;
     followingCount = fic || 0;
   }
@@ -1423,7 +1423,7 @@ async function renderProfile(header, content, userId) {
   // Check follow status
   let isFollowing = false;
   if (!isMe) {
-    const { data: fw } = await sb.from('follows').select('id').eq('follower_id', state.user.id).eq('following_id', userId).maybeSingle();
+    const { data: fw } = await sb.from('ri_follows').select('id').eq('follower_id', state.user.id).eq('following_id', userId).maybeSingle();
     isFollowing = !!fw;
   }
 
@@ -1458,10 +1458,10 @@ async function renderProfile(header, content, userId) {
   } else {
     profileHeader.querySelector('#follow-btn').onclick = async function() {
       if (isFollowing) {
-        await sb.from('follows').delete().eq('follower_id', state.user.id).eq('following_id', userId);
+        await sb.from('ri_follows').delete().eq('follower_id', state.user.id).eq('following_id', userId);
         isFollowing = false;
       } else {
-        await sb.from('follows').insert({ follower_id: state.user.id, following_id: userId });
+        await sb.from('ri_follows').insert({ follower_id: state.user.id, following_id: userId });
         isFollowing = true;
       }
       this.className = isFollowing ? 'btn-secondary btn-follow-active' : 'btn-primary';
@@ -1471,7 +1471,7 @@ async function renderProfile(header, content, userId) {
 
   // Posts grid
   const { data: posts } = await sb
-    .from('posts')
+    .from('ri_posts')
     .select('id, image_url')
     .eq('user_id', userId)
     .order('created_at', { ascending: false });
@@ -1567,13 +1567,13 @@ async function renderEditProfile(header, content) {
 
       if (newAvatarBlob) {
         const filename = `${state.user.id}/${Date.now()}.jpg`;
-        const { error: upErr } = await sb.storage.from('avatars').upload(filename, newAvatarBlob, { contentType: 'image/jpeg' });
+        const { error: upErr } = await sb.storage.from('ri-avatars').upload(filename, newAvatarBlob, { contentType: 'image/jpeg' });
         if (upErr) throw upErr;
-        const { data: urlData } = sb.storage.from('avatars').getPublicUrl(filename);
+        const { data: urlData } = sb.storage.from('ri-avatars').getPublicUrl(filename);
         avatarUrl = urlData.publicUrl;
       }
 
-      const { error } = await sb.from('profiles').update({
+      const { error } = await sb.from('ri_profiles').update({
         username,
         display_name: displayName || null,
         bio: bio || null,
@@ -1643,7 +1643,7 @@ function renderSettings(header, content) {
 
   content.querySelector('#set-blocks').onclick = async () => {
     const { data: blocks } = await sb
-      .from('blocks')
+      .from('ri_blocks')
       .select('*, blocked:blocked_id(id, username, avatar_url)')
       .eq('blocker_id', state.user.id);
 
@@ -1663,7 +1663,7 @@ function renderSettings(header, content) {
           <button class="btn-secondary" style="flex:none;padding:6px 12px;font-size:13px">解除</button>
         `;
         item.querySelector('button').onclick = async () => {
-          await sb.from('blocks').delete().eq('blocker_id', state.user.id).eq('blocked_id', user.id);
+          await sb.from('ri_blocks').delete().eq('blocker_id', state.user.id).eq('blocked_id', user.id);
           item.remove();
           toast('ブロックを解除しました');
         };
@@ -1689,16 +1689,16 @@ async function renderHashtag(header, content, tag) {
 
   content.innerHTML = '<div class="spinner"></div>';
 
-  const { data: hashtagRow } = await sb.from('hashtags').select('id').eq('name', tag).maybeSingle();
+  const { data: hashtagRow } = await sb.from('ri_hashtags').select('id').eq('name', tag).maybeSingle();
   if (!hashtagRow) { content.innerHTML = '<div class="empty-state"><p>ハッシュタグが見つかりません</p></div>'; return; }
 
-  const { data: postHashtags } = await sb.from('post_hashtags').select('post_id').eq('hashtag_id', hashtagRow.id);
+  const { data: postHashtags } = await sb.from('ri_post_hashtags').select('post_id').eq('hashtag_id', hashtagRow.id);
   const postIds = (postHashtags || []).map(ph => ph.post_id);
 
   if (postIds.length === 0) { content.innerHTML = '<div class="empty-state"><p>投稿がありません</p></div>'; return; }
 
   const { data: posts } = await sb
-    .from('posts')
+    .from('ri_posts')
     .select('id, image_url')
     .in('id', postIds)
     .order('created_at', { ascending: false });
@@ -1744,7 +1744,7 @@ async function checkOnboarding() {
       if (!username) { errorEl.textContent = 'ユーザー名を入力してください'; errorEl.style.display = 'block'; return; }
       if (!/^[a-z0-9_]{3,20}$/.test(username)) { errorEl.textContent = '3〜20文字の英小文字・数字・_のみ'; errorEl.style.display = 'block'; return; }
 
-      const { error } = await sb.from('profiles').update({ username }).eq('id', state.user.id);
+      const { error } = await sb.from('ri_profiles').update({ username }).eq('id', state.user.id);
       if (error) {
         if (error.code === '23505') errorEl.textContent = 'このユーザー名は既に使われています';
         else errorEl.textContent = error.message;
@@ -1777,7 +1777,7 @@ async function init() {
   state.user = session.user;
 
   // Load profile
-  const { data: profile } = await sb.from('profiles').select('*').eq('id', state.user.id).single();
+  const { data: profile } = await sb.from('ri_profiles').select('*').eq('id', state.user.id).single();
   state.profile = profile || {};
 
   // Check onboarding
