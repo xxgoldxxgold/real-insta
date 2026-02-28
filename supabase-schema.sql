@@ -305,3 +305,114 @@ CREATE POLICY "ri-posts: users can delete own" ON storage.objects FOR DELETE USI
 CREATE POLICY "ri-avatars: anyone can view" ON storage.objects FOR SELECT USING (bucket_id = 'ri-avatars');
 CREATE POLICY "ri-avatars: auth users can upload" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'ri-avatars' AND auth.role() = 'authenticated');
 CREATE POLICY "ri-avatars: users can delete own" ON storage.objects FOR DELETE USING (bucket_id = 'ri-avatars' AND auth.uid()::text = (storage.foldername(name))[1]);
+
+-- ============================================
+-- 13. ri_conversations (DM会話)
+-- ============================================
+CREATE TABLE public.ri_conversations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user1_id UUID NOT NULL REFERENCES public.ri_profiles(id) ON DELETE CASCADE,
+  user2_id UUID NOT NULL REFERENCES public.ri_profiles(id) ON DELETE CASCADE,
+  last_message_text TEXT,
+  last_message_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  CHECK (user1_id < user2_id),
+  UNIQUE(user1_id, user2_id)
+);
+
+CREATE INDEX idx_ri_conversations_user1 ON public.ri_conversations(user1_id);
+CREATE INDEX idx_ri_conversations_user2 ON public.ri_conversations(user2_id);
+CREATE INDEX idx_ri_conversations_last ON public.ri_conversations(last_message_at DESC);
+
+-- ============================================
+-- 14. ri_messages (DMメッセージ)
+-- ============================================
+CREATE TABLE public.ri_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  conversation_id UUID NOT NULL REFERENCES public.ri_conversations(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES public.ri_profiles(id) ON DELETE CASCADE,
+  content TEXT NOT NULL CHECK (char_length(content) <= 1000),
+  is_read BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX idx_ri_messages_conv ON public.ri_messages(conversation_id, created_at DESC);
+CREATE INDEX idx_ri_messages_unread ON public.ri_messages(conversation_id, is_read) WHERE is_read = false;
+
+-- メッセージINSERT時にri_conversationsのlast_message更新
+CREATE OR REPLACE FUNCTION public.ri_update_conversation_last_message()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.ri_conversations
+  SET last_message_text = NEW.content,
+      last_message_at = NEW.created_at
+  WHERE id = NEW.conversation_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_ri_message_insert
+  AFTER INSERT ON public.ri_messages
+  FOR EACH ROW EXECUTE FUNCTION public.ri_update_conversation_last_message();
+
+-- RLS
+ALTER TABLE public.ri_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ri_messages ENABLE ROW LEVEL SECURITY;
+
+-- ri_conversations: 参加者のみ閲覧
+CREATE POLICY "ri_conversations: participants can view" ON public.ri_conversations
+  FOR SELECT USING (auth.uid() = user1_id OR auth.uid() = user2_id);
+
+-- ri_conversations: ブロック中でなければ作成可能
+CREATE POLICY "ri_conversations: create if not blocked" ON public.ri_conversations
+  FOR INSERT WITH CHECK (
+    (auth.uid() = user1_id OR auth.uid() = user2_id)
+    AND NOT EXISTS (
+      SELECT 1 FROM public.ri_blocks
+      WHERE (blocker_id = user1_id AND blocked_id = user2_id)
+         OR (blocker_id = user2_id AND blocked_id = user1_id)
+    )
+  );
+
+-- ri_messages: 会話参加者のみ閲覧
+CREATE POLICY "ri_messages: participants can view" ON public.ri_messages
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.ri_conversations c
+      WHERE c.id = ri_messages.conversation_id
+        AND (c.user1_id = auth.uid() OR c.user2_id = auth.uid())
+    )
+  );
+
+-- ri_messages: 送信者のみ挿入（会話参加者であること）
+CREATE POLICY "ri_messages: sender can insert" ON public.ri_messages
+  FOR INSERT WITH CHECK (
+    auth.uid() = sender_id
+    AND EXISTS (
+      SELECT 1 FROM public.ri_conversations c
+      WHERE c.id = ri_messages.conversation_id
+        AND (c.user1_id = auth.uid() OR c.user2_id = auth.uid())
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM public.ri_conversations c
+      JOIN public.ri_blocks b ON (
+        (b.blocker_id = c.user1_id AND b.blocked_id = c.user2_id)
+        OR (b.blocker_id = c.user2_id AND b.blocked_id = c.user1_id)
+      )
+      WHERE c.id = ri_messages.conversation_id
+    )
+  );
+
+-- ri_messages: 受信者のみ既読更新
+CREATE POLICY "ri_messages: receiver can mark read" ON public.ri_messages
+  FOR UPDATE USING (
+    auth.uid() != sender_id
+    AND EXISTS (
+      SELECT 1 FROM public.ri_conversations c
+      WHERE c.id = ri_messages.conversation_id
+        AND (c.user1_id = auth.uid() OR c.user2_id = auth.uid())
+    )
+  );
+
+-- Realtime: ri_messagesをpublicationに追加
+ALTER PUBLICATION supabase_realtime ADD TABLE public.ri_messages;

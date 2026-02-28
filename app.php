@@ -479,6 +479,95 @@ img { display: block; }
 }
 .report-option:hover { color: var(--accent); }
 
+/* DM */
+.dm-conv-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  gap: 12px;
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+.dm-conv-item:active { background: #f5f5f5; }
+.dm-conv-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #eee; }
+.dm-conv-body { flex: 1; min-width: 0; }
+.dm-conv-name { font-weight: 600; font-size: 14px; }
+.dm-conv-preview { font-size: 13px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+.dm-conv-preview.unread { color: var(--text); font-weight: 600; }
+.dm-conv-meta { flex-shrink: 0; text-align: right; }
+.dm-conv-time { font-size: 11px; color: var(--text-secondary); }
+.dm-unread-badge {
+  display: inline-block;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 5px;
+  margin-top: 4px;
+}
+.dm-bubble-wrap { display: flex; margin: 4px 12px; }
+.dm-bubble-wrap.mine { justify-content: flex-end; }
+.dm-bubble-wrap.theirs { justify-content: flex-start; }
+.dm-bubble {
+  max-width: 70%;
+  padding: 8px 12px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+  position: relative;
+}
+.dm-bubble.mine { background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+.dm-bubble.theirs { background: #efefef; color: var(--text); border-bottom-left-radius: 4px; }
+.dm-bubble-time { font-size: 10px; color: var(--text-secondary); margin-top: 2px; display: flex; align-items: center; gap: 4px; }
+.dm-bubble-wrap.mine .dm-bubble-time { justify-content: flex-end; }
+.dm-bubble-read svg { width: 14px; height: 14px; color: var(--accent); }
+.dm-input-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  gap: 8px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+}
+.dm-input-bar input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 8px 16px;
+  font-size: 14px;
+  outline: none;
+  background: var(--bg);
+}
+.dm-input-bar input:focus { border-color: var(--accent); }
+.dm-send-btn { color: var(--accent); font-weight: 600; font-size: 14px; padding: 8px; }
+.dm-send-btn:disabled { opacity: 0.4; }
+.dm-badge {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 16px;
+  height: 16px;
+  line-height: 16px;
+  border-radius: 8px;
+  background: var(--like);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  padding: 0 4px;
+}
+.dm-header-icon { position: relative; display: inline-flex; cursor: pointer; padding: 4px; }
+.dm-date-sep { text-align: center; padding: 12px 0 4px; font-size: 11px; color: var(--text-secondary); }
+
 @media (min-width: 500px) {
   #app { max-width: 500px; margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
   .bottom-nav { max-width: 500px; left: 50%; transform: translateX(-50%); }
@@ -523,7 +612,17 @@ const state = {
   flashOn: false,
   capturedImage: null,
   notifications: [],
-  cachedProfiles: {}
+  cachedProfiles: {},
+  // DM
+  conversations: [],
+  dmLoading: false,
+  currentConversation: null,
+  messages: [],
+  messagesLoading: false,
+  messagesEnd: false,
+  messagesPage: 0,
+  dmSubscription: null,
+  unreadDmCount: 0
 };
 
 const PAGE_SIZE = 12;
@@ -551,6 +650,8 @@ const icons = {
   grid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>`,
   settings: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
   send: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>`,
+  dm: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>`,
+  checkDouble: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 13l4 4L14 7"/><path d="M8 13l4 4L20 7"/></svg>`,
 };
 
 // ============================================
@@ -639,6 +740,12 @@ function switchTab(tab) {
 // RENDER
 // ============================================
 function render() {
+  // Clean up DM thread subscription when leaving thread view
+  if (state.currentView !== 'thread' && state.dmSubscription) {
+    state.dmSubscription.unsubscribe();
+    state.dmSubscription = null;
+  }
+
   const header = $('#header-container');
   const content = $('#main-content');
   const nav = $('#bottom-nav');
@@ -660,6 +767,8 @@ function render() {
     case 'settings': renderSettings(header, content); break;
     case 'editProfile': renderEditProfile(header, content); break;
     case 'hashtag': renderHashtag(header, content, state.currentParams.tag); break;
+    case 'inbox': renderInbox(header, content); break;
+    case 'thread': renderThread(header, content, state.currentParams.conversationId, state.currentParams.otherUserId); break;
   }
 
   content.scrollTop = 0;
@@ -694,7 +803,15 @@ function renderNav(nav) {
 // FEED
 // ============================================
 async function renderFeed(header, content) {
-  header.innerHTML = `<div class="header"><div class="header-logo">Real Insta</div></div>`;
+  header.innerHTML = `<div class="header">
+    <div class="header-logo">Real Insta</div>
+    <div class="dm-header-icon" id="open-dm-btn">
+      ${icons.dm}
+      <span class="dm-badge" id="dm-badge" style="display:none"></span>
+    </div>
+  </div>`;
+  header.querySelector('#open-dm-btn').onclick = () => navigate('inbox');
+  updateDmBadge();
 
   content.innerHTML = '<div class="spinner"></div>';
 
@@ -1447,7 +1564,8 @@ async function renderProfile(header, content, userId) {
     <div class="profile-actions">
       ${isMe
         ? `<button class="btn-secondary" id="edit-profile-btn">プロフィールを編集</button>`
-        : `<button class="${isFollowing ? 'btn-secondary btn-follow-active' : 'btn-primary'}" id="follow-btn">${isFollowing ? 'フォロー中' : 'フォロー'}</button>`
+        : `<button class="${isFollowing ? 'btn-secondary btn-follow-active' : 'btn-primary'}" id="follow-btn">${isFollowing ? 'フォロー中' : 'フォロー'}</button>
+           <button class="btn-secondary" id="dm-btn">メッセージ</button>`
       }
     </div>
   `;
@@ -1456,6 +1574,7 @@ async function renderProfile(header, content, userId) {
   if (isMe) {
     profileHeader.querySelector('#edit-profile-btn').onclick = () => navigate('editProfile');
   } else {
+    profileHeader.querySelector('#dm-btn').onclick = () => openOrCreateConversation(userId);
     profileHeader.querySelector('#follow-btn').onclick = async function() {
       if (isFollowing) {
         await sb.from('ri_follows').delete().eq('follower_id', state.user.id).eq('following_id', userId);
@@ -1717,6 +1836,333 @@ async function renderHashtag(header, content, tag) {
 }
 
 // ============================================
+// DM (Direct Messages)
+// ============================================
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function truncate(str, len) {
+  if (!str) return '';
+  return str.length > len ? str.slice(0, len) + '…' : str;
+}
+
+function formatMessageTime(date) {
+  const d = new Date(date);
+  return d.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+}
+
+function createMessageBubble(msg) {
+  const isMine = msg.sender_id === state.user.id;
+  const wrap = el('div', { className: `dm-bubble-wrap ${isMine ? 'mine' : 'theirs'}` });
+  const bubble = el('div', { className: `dm-bubble ${isMine ? 'mine' : 'theirs'}` });
+  bubble.textContent = msg.content;
+  wrap.appendChild(bubble);
+
+  const timeLine = el('div', { className: 'dm-bubble-time' });
+  timeLine.textContent = formatMessageTime(msg.created_at);
+  if (isMine && msg.is_read) {
+    const readMark = el('span', { className: 'dm-bubble-read', html: icons.checkDouble });
+    timeLine.appendChild(readMark);
+  }
+  wrap.appendChild(timeLine);
+  return wrap;
+}
+
+async function openOrCreateConversation(otherUserId) {
+  showLoading();
+  try {
+    const ids = [state.user.id, otherUserId].sort();
+    // Check existing
+    const { data: existing } = await sb
+      .from('ri_conversations')
+      .select('*')
+      .eq('user1_id', ids[0])
+      .eq('user2_id', ids[1])
+      .maybeSingle();
+
+    if (existing) {
+      hideLoading();
+      navigate('thread', { conversationId: existing.id, otherUserId });
+      return;
+    }
+
+    // Create new
+    const { data: conv, error } = await sb
+      .from('ri_conversations')
+      .insert({ user1_id: ids[0], user2_id: ids[1] })
+      .select()
+      .single();
+
+    if (error) throw error;
+    hideLoading();
+    navigate('thread', { conversationId: conv.id, otherUserId });
+  } catch (e) {
+    hideLoading();
+    if (e.message?.includes('ri_blocks') || e.code === '23514') {
+      toast('このユーザーにメッセージを送れません');
+    } else {
+      toast('エラー: ' + e.message);
+    }
+  }
+}
+
+async function renderInbox(header, content) {
+  header.innerHTML = `<div class="header">
+    <div class="header-left"><button class="header-btn" onclick="goBack()">${icons.back}</button></div>
+    <div class="header-title">メッセージ</div>
+    <div class="header-right"></div>
+  </div>`;
+
+  content.innerHTML = '<div class="spinner"></div>';
+
+  const { data: convs } = await sb
+    .from('ri_conversations')
+    .select('*')
+    .or(`user1_id.eq.${state.user.id},user2_id.eq.${state.user.id}`)
+    .order('last_message_at', { ascending: false });
+
+  if (!convs || convs.length === 0) {
+    content.innerHTML = `<div class="empty-state">${icons.dm}<p>まだメッセージはありません</p></div>`;
+    return;
+  }
+
+  content.innerHTML = '';
+
+  // Get other user profiles
+  const otherIds = convs.map(c => c.user1_id === state.user.id ? c.user2_id : c.user1_id);
+  const { data: profiles } = await sb.from('ri_profiles').select('id, username, display_name, avatar_url').in('id', otherIds);
+  const profileMap = {};
+  (profiles || []).forEach(p => profileMap[p.id] = p);
+
+  // Get unread counts per conversation
+  const { data: unreadMsgs } = await sb
+    .from('ri_messages')
+    .select('conversation_id')
+    .in('conversation_id', convs.map(c => c.id))
+    .neq('sender_id', state.user.id)
+    .eq('is_read', false);
+
+  const unreadMap = {};
+  (unreadMsgs || []).forEach(m => { unreadMap[m.conversation_id] = (unreadMap[m.conversation_id] || 0) + 1; });
+
+  convs.forEach(c => {
+    const otherId = c.user1_id === state.user.id ? c.user2_id : c.user1_id;
+    const otherProfile = profileMap[otherId] || {};
+    const unread = unreadMap[c.id] || 0;
+
+    const item = el('div', { className: 'dm-conv-item' });
+    item.innerHTML = `
+      <img class="dm-conv-avatar" src="${avatarUrl(otherProfile.avatar_url)}" alt="">
+      <div class="dm-conv-body">
+        <div class="dm-conv-name">${otherProfile.username || otherProfile.display_name || 'user'}</div>
+        <div class="dm-conv-preview ${unread > 0 ? 'unread' : ''}">${escapeHtml(truncate(c.last_message_text || '', 30))}</div>
+      </div>
+      <div class="dm-conv-meta">
+        <div class="dm-conv-time">${c.last_message_at ? timeAgo(c.last_message_at) : ''}</div>
+        ${unread > 0 ? `<div class="dm-unread-badge">${unread}</div>` : ''}
+      </div>
+    `;
+    item.onclick = () => navigate('thread', { conversationId: c.id, otherUserId: otherId });
+    content.appendChild(item);
+  });
+}
+
+async function renderThread(header, content, conversationId, otherUserId) {
+  // Load other user profile
+  const { data: otherProfile } = await sb.from('ri_profiles').select('*').eq('id', otherUserId).single();
+  const displayName = otherProfile?.username || otherProfile?.display_name || 'user';
+
+  header.innerHTML = `<div class="header">
+    <div class="header-left"><button class="header-btn" onclick="goBack()">${icons.back}</button></div>
+    <div class="header-title" style="cursor:pointer" id="thread-title">${displayName}</div>
+    <div class="header-right"></div>
+  </div>`;
+  header.querySelector('#thread-title').onclick = () => navigate('user', { userId: otherUserId });
+
+  content.innerHTML = '<div class="spinner"></div>';
+
+  // Load messages
+  const { data: msgs } = await sb
+    .from('ri_messages')
+    .select('*')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true })
+    .limit(100);
+
+  content.innerHTML = '';
+
+  const msgsContainer = el('div', { id: 'dm-messages' });
+  content.appendChild(msgsContainer);
+
+  if (msgs && msgs.length > 0) {
+    let lastDate = '';
+    msgs.forEach(m => {
+      const mDate = new Date(m.created_at).toLocaleDateString('ja-JP');
+      if (mDate !== lastDate) {
+        msgsContainer.appendChild(el('div', { className: 'dm-date-sep' }, mDate));
+        lastDate = mDate;
+      }
+      msgsContainer.appendChild(createMessageBubble(m));
+    });
+  } else {
+    msgsContainer.appendChild(el('div', { className: 'empty-state', style: 'padding:40px 20px' },
+      el('p', {}, 'メッセージを送ってみましょう')
+    ));
+  }
+
+  // Input bar
+  const inputBar = el('div', { className: 'dm-input-bar' });
+  const input = el('input', { type: 'text', placeholder: 'メッセージを入力...', maxlength: '1000' });
+  const sendBtn = el('button', { className: 'dm-send-btn', disabled: 'true', html: icons.send });
+  inputBar.append(input, sendBtn);
+  content.appendChild(inputBar);
+
+  input.oninput = () => { sendBtn.disabled = !input.value.trim(); };
+
+  const sendMessage = async () => {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    sendBtn.disabled = true;
+
+    const { error } = await sb.from('ri_messages').insert({
+      conversation_id: conversationId,
+      sender_id: state.user.id,
+      content: text
+    });
+
+    if (error) {
+      toast('送信できませんでした');
+      input.value = text;
+      sendBtn.disabled = false;
+    }
+  };
+
+  sendBtn.onclick = sendMessage;
+  input.onkeydown = (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } };
+
+  // Mark unread as read
+  await sb
+    .from('ri_messages')
+    .update({ is_read: true })
+    .eq('conversation_id', conversationId)
+    .neq('sender_id', state.user.id)
+    .eq('is_read', false);
+
+  // Subscribe to realtime
+  subscribeToDmThread(conversationId, msgsContainer, content);
+
+  // Scroll to bottom
+  setTimeout(() => { content.scrollTop = content.scrollHeight; }, 100);
+  input.focus();
+}
+
+function subscribeToDmThread(conversationId, msgsContainer, scrollContainer) {
+  // Clean up previous subscription
+  if (state.dmSubscription) {
+    state.dmSubscription.unsubscribe();
+    state.dmSubscription = null;
+  }
+
+  state.dmSubscription = sb
+    .channel(`dm-thread-${conversationId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'ri_messages',
+      filter: `conversation_id=eq.${conversationId}`
+    }, async (payload) => {
+      const msg = payload.new;
+      // Remove empty state if present
+      const empty = msgsContainer.querySelector('.empty-state');
+      if (empty) empty.remove();
+
+      // Add date separator if needed
+      const lastBubble = msgsContainer.querySelector('.dm-bubble-wrap:last-child');
+      const msgDate = new Date(msg.created_at).toLocaleDateString('ja-JP');
+      if (!lastBubble) {
+        msgsContainer.appendChild(el('div', { className: 'dm-date-sep' }, msgDate));
+      }
+
+      msgsContainer.appendChild(createMessageBubble(msg));
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
+
+      // Mark as read if from other user
+      if (msg.sender_id !== state.user.id) {
+        await sb.from('ri_messages').update({ is_read: true }).eq('id', msg.id);
+      }
+    })
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'ri_messages',
+      filter: `conversation_id=eq.${conversationId}`
+    }, (payload) => {
+      // Update read status on existing bubbles
+      if (payload.new.is_read && payload.new.sender_id === state.user.id) {
+        // Re-render would be heavy, just add check marks to all mine
+        msgsContainer.querySelectorAll('.dm-bubble-wrap.mine .dm-bubble-time').forEach(t => {
+          if (!t.querySelector('.dm-bubble-read')) {
+            const readMark = el('span', { className: 'dm-bubble-read', html: icons.checkDouble });
+            t.appendChild(readMark);
+          }
+        });
+      }
+    })
+    .subscribe();
+}
+
+let dmGlobalChannel = null;
+
+function subscribeToDmGlobal() {
+  if (dmGlobalChannel) return;
+
+  dmGlobalChannel = sb
+    .channel('dm-global')
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'ri_messages'
+    }, (payload) => {
+      const msg = payload.new;
+      if (msg.sender_id !== state.user.id) {
+        // Only increment if not currently viewing that thread
+        if (state.currentView !== 'thread' || state.currentParams?.conversationId !== msg.conversation_id) {
+          state.unreadDmCount++;
+          updateDmBadge();
+        }
+      }
+    })
+    .subscribe();
+}
+
+function updateDmBadge() {
+  const badge = document.getElementById('dm-badge');
+  if (badge) {
+    if (state.unreadDmCount > 0) {
+      badge.textContent = state.unreadDmCount > 99 ? '99+' : state.unreadDmCount;
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+async function loadUnreadDmCount() {
+  const { count } = await sb
+    .from('ri_messages')
+    .select('*', { count: 'exact', head: true })
+    .neq('sender_id', state.user.id)
+    .eq('is_read', false);
+
+  state.unreadDmCount = count || 0;
+  updateDmBadge();
+}
+
+// ============================================
 // ONBOARDING (Username setup)
 // ============================================
 async function checkOnboarding() {
@@ -1783,6 +2229,10 @@ async function init() {
   // Check onboarding
   const onboarding = await checkOnboarding();
   if (onboarding) return;
+
+  // DM: load unread count and subscribe globally
+  loadUnreadDmCount();
+  subscribeToDmGlobal();
 
   render();
 }
