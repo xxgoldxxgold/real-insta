@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../constants.dart';
 import '../services.dart';
+import '../widgets/logo_text.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -58,10 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Text(
-                  'Real-Insta',
-                  style: TextStyle(fontSize: 36, fontWeight: FontWeight.w700, color: AppColors.text),
-                ),
+                const LogoText(fontSize: 36),
                 const SizedBox(height: 8),
                 const Text(
                   'リアルな写真を共有しよう',

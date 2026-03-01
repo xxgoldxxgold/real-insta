@@ -5,6 +5,7 @@ import '../app.dart';
 import '../constants.dart';
 import '../models.dart';
 import '../services.dart';
+import '../widgets/logo_text.dart';
 import '../widgets/post_card.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -78,7 +79,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Real-Insta', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+        title: const LogoText(fontSize: 22),
         centerTitle: false,
         actions: [
           Badge(
