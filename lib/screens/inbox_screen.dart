@@ -48,7 +48,7 @@ class _InboxScreenState extends State<InboxScreen> {
                       final conv = _conversations[index];
                       final other = conv.otherUser;
                       return ListTile(
-                        leading: UserAvatar(url: other?.avatarUrl, size: 52),
+                        leading: UserAvatar(url: other?.avatarUrl, size: 56),
                         title: Text(
                           other?.username ?? other?.name ?? '',
                           style: TextStyle(

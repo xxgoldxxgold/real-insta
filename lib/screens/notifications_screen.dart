@@ -83,7 +83,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       title: RichText(
         text: TextSpan(
-          style: const TextStyle(color: AppColors.text, fontSize: 13),
+          style: const TextStyle(color: AppColors.text, fontSize: 14),
           children: [
             TextSpan(
               text: n.actor?.username ?? n.actor?.name ?? '',

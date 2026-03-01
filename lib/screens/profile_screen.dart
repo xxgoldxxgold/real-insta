@@ -14,7 +14,8 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   Profile? _profile;
   List<Post> _posts = [];
   bool _loading = true;
@@ -24,7 +25,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -164,6 +172,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(p)),
+            SliverToBoxAdapter(
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: AppColors.text,
+                indicatorWeight: 1,
+                labelColor: AppColors.text,
+                unselectedLabelColor: AppColors.textSecondary,
+                tabs: const [
+                  Tab(icon: Icon(Icons.grid_on, size: 24)),
+                  Tab(icon: Icon(Icons.person_pin_outlined, size: 24)),
+                ],
+              ),
+            ),
             SliverPadding(
               padding: const EdgeInsets.all(1),
               sliver: SliverGrid(
@@ -203,7 +224,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
-              UserAvatar(url: p.avatarUrl, size: 80),
+              UserAvatar(url: p.avatarUrl, size: 86),
               const SizedBox(width: 24),
               Expanded(
                 child: Row(
@@ -229,13 +250,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
           if (_isMe)
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton(
+              height: 34,
+              child: ElevatedButton(
                 onPressed: () => context.push('/edit-profile'),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.border),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.buttonGrey,
+                  foregroundColor: AppColors.text,
+                  elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
-                child: const Text('プロフィールを編集', style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontSize: 13)),
+                child: const Text('プロフィールを編集', style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontSize: 14)),
               ),
             )
           else
@@ -254,16 +278,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                OutlinedButton(
-                  onPressed: () async {
-                    final conv = await DMService.getOrCreateConversation(widget.userId);
-                    if (mounted) context.push('/thread/${conv.id}');
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppColors.border),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                SizedBox(
+                  height: 34,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final conv = await DMService.getOrCreateConversation(widget.userId);
+                      if (mounted) context.push('/thread/${conv.id}');
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.buttonGrey,
+                      foregroundColor: AppColors.text,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text('メッセージ', style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontSize: 14)),
                   ),
-                  child: const Text('メッセージ', style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontSize: 13)),
                 ),
               ],
             ),

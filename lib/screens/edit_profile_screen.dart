@@ -107,7 +107,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 onTap: _pickAvatar,
                 child: Column(
                   children: [
-                    UserAvatar(url: _avatarUrl, size: 80),
+                    UserAvatar(url: _avatarUrl, size: 86),
                     const SizedBox(height: 8),
                     const Text('写真を変更', style: TextStyle(color: AppColors.accent, fontSize: 13, fontWeight: FontWeight.w600)),
                   ],
@@ -136,16 +136,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             controller: controller,
             maxLines: maxLines,
             maxLength: maxLength,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.border),
+            decoration: const InputDecoration(
+              border: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.border),
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.border),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.border),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: EdgeInsets.symmetric(horizontal: 0, vertical: 10),
             ),
           ),
         ],

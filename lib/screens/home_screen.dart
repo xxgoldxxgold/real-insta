@@ -65,10 +65,10 @@ class _HomeScreenState extends State<HomeScreen> {
           unselectedItemColor: AppColors.textSecondary,
           showSelectedLabels: false,
           showUnselectedLabels: false,
-          iconSize: 26,
+          iconSize: 28,
           items: [
             const BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'ホーム'),
-            const BottomNavigationBarItem(icon: Icon(Icons.search), activeIcon: Icon(Icons.search), label: '検索'),
+            const BottomNavigationBarItem(icon: Icon(Icons.search_outlined), activeIcon: Icon(Icons.search), label: '検索'),
             const BottomNavigationBarItem(icon: Icon(Icons.add_box_outlined), activeIcon: Icon(Icons.add_box), label: '投稿'),
             BottomNavigationBarItem(
               icon: Badge(

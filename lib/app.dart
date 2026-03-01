@@ -75,6 +75,7 @@ class RealInstaApp extends StatelessWidget {
             elevation: 0,
             scrolledUnderElevation: 0,
             titleTextStyle: TextStyle(color: AppColors.text, fontSize: 16, fontWeight: FontWeight.w600),
+            shape: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
           ),
           colorScheme: ColorScheme.fromSeed(
             seedColor: AppColors.accent,

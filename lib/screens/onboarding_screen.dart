@@ -51,7 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: Colors.white,
       appBar: AppBar(title: const Text('ユーザー名を設定')),
       body: Padding(
         padding: const EdgeInsets.all(24),

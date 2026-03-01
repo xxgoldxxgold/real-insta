@@ -172,8 +172,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.7),
         decoration: BoxDecoration(
-          color: isMe ? AppColors.accent : const Color(0xFFEFEFEF),
-          borderRadius: BorderRadius.circular(18),
+          color: isMe ? const Color(0xFF3797F0) : const Color(0xFFEFEFEF),
+          borderRadius: BorderRadius.circular(22),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,

@@ -151,7 +151,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               children: [
                 RichText(
                   text: TextSpan(
-                    style: const TextStyle(color: AppColors.text, fontSize: 13),
+                    style: const TextStyle(color: AppColors.text, fontSize: 14),
                     children: [
                       TextSpan(
                         text: '${c.author?.username ?? ""} ',

@@ -21,6 +21,7 @@ class _PostCardState extends State<PostCard> {
   late bool _liked;
   late int _likesCount;
   bool _showHeart = false;
+  bool _bookmarked = false;
 
   @override
   void initState() {
@@ -72,7 +73,7 @@ class _PostCardState extends State<PostCard> {
         children: [
           // Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
                 UserAvatar(
@@ -89,7 +90,7 @@ class _PostCardState extends State<PostCard> {
                       children: [
                         Text(
                           author?.username ?? author?.name ?? '',
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                         ),
                         if (post.locationName != null)
                           Text(
@@ -149,7 +150,7 @@ class _PostCardState extends State<PostCard> {
           ),
           // Actions
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 GestureDetector(
@@ -160,15 +161,23 @@ class _PostCardState extends State<PostCard> {
                     size: 24,
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 16),
                 GestureDetector(
                   onTap: () => context.push('/post/${post.id}'),
-                  child: const Icon(Icons.chat_bubble_outline, size: 22),
+                  child: const Icon(Icons.chat_bubble_outline, size: 24),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 16),
                 GestureDetector(
                   onTap: () => context.push('/post/${post.id}'),
-                  child: const Icon(Icons.send_outlined, size: 22),
+                  child: const Icon(Icons.send_outlined, size: 24),
+                ),
+                const Spacer(),
+                GestureDetector(
+                  onTap: () => setState(() => _bookmarked = !_bookmarked),
+                  child: Icon(
+                    _bookmarked ? Icons.bookmark : Icons.bookmark_border,
+                    size: 24,
+                  ),
                 ),
               ],
             ),
@@ -176,33 +185,33 @@ class _PostCardState extends State<PostCard> {
           // Likes count
           if (_likesCount > 0)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('いいね！$_likesCount件', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text('いいね！$_likesCount件', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
             ),
           // Caption
           if (post.caption != null && post.caption!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
               child: _buildCaption(context, author?.username ?? '', post.caption!),
             ),
           // Comments link
           if (post.commentsCount > 0)
             Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
               child: GestureDetector(
                 onTap: () => context.push('/post/${post.id}'),
                 child: Text(
                   'コメント${post.commentsCount}件をすべて見る',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                 ),
               ),
             ),
           // Timestamp
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: Text(
               timeago.format(post.createdAt, locale: 'ja'),
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+              style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
             ),
           ),
         ],
@@ -214,7 +223,7 @@ class _PostCardState extends State<PostCard> {
     final parts = <InlineSpan>[];
     parts.add(TextSpan(
       text: '$username ',
-      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
       recognizer: null,
     ));
 
@@ -228,7 +237,7 @@ class _PostCardState extends State<PostCard> {
       parts.add(WidgetSpan(
         child: GestureDetector(
           onTap: () => context.push('/hashtag/$tag'),
-          child: Text('#$tag', style: const TextStyle(color: AppColors.accent, fontSize: 13)),
+          child: Text('#$tag', style: const TextStyle(color: AppColors.accent, fontSize: 14)),
         ),
       ));
       lastEnd = match.end;
@@ -239,7 +248,7 @@ class _PostCardState extends State<PostCard> {
 
     return RichText(
       text: TextSpan(
-        style: const TextStyle(color: AppColors.text, fontSize: 13, height: 1.4),
+        style: const TextStyle(color: AppColors.text, fontSize: 14, height: 1.4),
         children: parts,
       ),
     );

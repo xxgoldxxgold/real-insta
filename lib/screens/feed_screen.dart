@@ -83,10 +83,20 @@ class _FeedScreenState extends State<FeedScreen> {
         centerTitle: false,
         actions: [
           Badge(
+            isLabelVisible: appState.unreadNotifications > 0,
+            label: Text('${appState.unreadNotifications}', style: const TextStyle(fontSize: 10)),
+            child: IconButton(
+              icon: const Icon(Icons.favorite_border, size: 26),
+              onPressed: () {
+                // Navigate to notifications tab (index 3)
+              },
+            ),
+          ),
+          Badge(
             isLabelVisible: appState.unreadMessages > 0,
             label: Text('${appState.unreadMessages}', style: const TextStyle(fontSize: 10)),
             child: IconButton(
-              icon: const Icon(Icons.send_outlined),
+              icon: const Icon(Icons.send_outlined, size: 26),
               onPressed: () => context.push('/inbox'),
             ),
           ),
