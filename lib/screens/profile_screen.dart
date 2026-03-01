@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import '../constants.dart';
@@ -287,7 +288,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               children: [
                 Expanded(child: _greyButton('プロフィールを編集', () => context.push('/edit-profile'))),
                 const SizedBox(width: 6),
-                Expanded(child: _greyButton('プロフィールをシェア', () {})),
+                Expanded(child: _greyButton('プロフィールをシェア', () {
+                  final url = 'https://real-insta.com/#/profile/${widget.userId}';
+                  Clipboard.setData(ClipboardData(text: url));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('プロフィールリンクをコピーしました')),
+                  );
+                })),
               ],
             )
           else
