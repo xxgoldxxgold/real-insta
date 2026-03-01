@@ -1,42 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:go_router/go_router.dart';
-import 'dart:js_interop' if (dart.library.io) 'dart:js_interop';
 import '../constants.dart';
 import '../services.dart';
 import '../widgets/logo_text.dart';
-
-bool _isInAppBrowser() {
-  if (!kIsWeb) return false;
-  try {
-    final ua = _getUserAgent();
-    if (ua == null) return false;
-    final lower = ua.toLowerCase();
-    return lower.contains('line/') ||
-        lower.contains('fbav/') ||
-        lower.contains('fban/') ||
-        lower.contains('instagram') ||
-        lower.contains('twitter') ||
-        lower.contains('wechat') ||
-        lower.contains('micromessenger');
-  } catch (_) {
-    return false;
-  }
-}
-
-String? _getUserAgent() {
-  if (!kIsWeb) return null;
-  try {
-    return _webUserAgent();
-  } catch (_) {
-    return null;
-  }
-}
-
-@JS('navigator.userAgent')
-external String get _jsUserAgent;
-
-String _webUserAgent() => _jsUserAgent;
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -51,13 +17,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
   bool _loading = false;
   String? _error;
-  late bool _inAppBrowser;
-
-  @override
-  void initState() {
-    super.initState();
-    _inAppBrowser = _isInAppBrowser();
-  }
 
   @override
   void dispose() {
@@ -89,6 +48,21 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await AuthService.signInWithGoogle();
+      if (mounted) context.go('/');
+    } catch (e) {
+      if (mounted) setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,45 +81,12 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
                 ),
                 const SizedBox(height: 40),
-                // In-app browser warning
-                if (_inAppBrowser) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3CD),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFFFFD93D)),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.warning_amber_rounded, color: Color(0xFF856404), size: 20),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Googleログインを使うには、SafariまたはChromeで開いてください。\n右下の「…」→「ブラウザで開く」をタップ',
-                            style: TextStyle(color: Color(0xFF856404), fontSize: 12, height: 1.4),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
                 // Google Sign In
                 SizedBox(
                   width: double.infinity,
                   height: 44,
                   child: OutlinedButton.icon(
-                    onPressed: (_loading || _inAppBrowser) ? null : () async {
-                      setState(() => _loading = true);
-                      try {
-                        await AuthService.signInWithGoogle();
-                      } catch (e) {
-                        if (mounted) setState(() => _error = e.toString());
-                      } finally {
-                        if (mounted) setState(() => _loading = false);
-                      }
-                    },
+                    onPressed: _loading ? null : _handleGoogleSignIn,
                     icon: const Text('G', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     label: const Text('Googleでログイン'),
                     style: OutlinedButton.styleFrom(

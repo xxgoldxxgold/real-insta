@@ -45,6 +45,50 @@
       if (el) el.remove();
     });
   </script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    // Google Sign-In via ID token (works in WebView)
+    window._googleIdToken = null;
+    window._googleSignInResolve = null;
+    function triggerGoogleSignIn() {
+      return new Promise(function(resolve) {
+        window._googleSignInResolve = resolve;
+        google.accounts.id.initialize({
+          client_id: '444936829523-tucgq0beqmcfh7datarsdvopk4v03a4e.apps.googleusercontent.com',
+          callback: function(response) {
+            window._googleIdToken = response.credential;
+            if (window._googleSignInResolve) {
+              window._googleSignInResolve(response.credential);
+              window._googleSignInResolve = null;
+            }
+          }
+        });
+        google.accounts.id.prompt(function(notification) {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            // One Tap not available, use button popup
+            google.accounts.id.renderButton(
+              document.createElement('div'),
+              { type: 'standard' }
+            );
+            // Fallback: trigger popup manually
+            var btn = document.createElement('div');
+            btn.id = '_gsi_tmp';
+            btn.style.cssText = 'position:fixed;top:-9999px';
+            document.body.appendChild(btn);
+            google.accounts.id.renderButton(btn, {
+              type: 'standard', size: 'large', click_listener: function(){}
+            });
+            setTimeout(function() {
+              var inner = btn.querySelector('div[role=button]') || btn.querySelector('iframe');
+              if (inner) inner.click();
+              else resolve(null);
+              setTimeout(function(){ btn.remove(); }, 1000);
+            }, 500);
+          }
+        });
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
