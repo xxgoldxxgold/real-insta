@@ -6,8 +6,8 @@ import '../constants.dart';
 import '../services.dart';
 import 'feed_screen.dart';
 import 'explore_screen.dart';
+import 'inbox_screen.dart';
 import 'camera_screen.dart';
-import 'notifications_screen.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -45,8 +45,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final screens = [
       const FeedScreen(),
       const ExploreScreen(),
+      const InboxScreen(),
       const CameraScreen(),
-      const NotificationsScreen(),
       ProfileScreen(userId: uid),
     ];
 
@@ -69,20 +69,20 @@ class _HomeScreenState extends State<HomeScreen> {
           items: [
             const BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'ホーム'),
             const BottomNavigationBarItem(icon: Icon(Icons.search_outlined), activeIcon: Icon(Icons.search), label: '検索'),
-            const BottomNavigationBarItem(icon: Icon(Icons.add_box_outlined), activeIcon: Icon(Icons.add_box), label: '投稿'),
             BottomNavigationBarItem(
               icon: Badge(
-                isLabelVisible: appState.unreadNotifications > 0,
-                label: Text('${appState.unreadNotifications}', style: const TextStyle(fontSize: 10)),
-                child: const Icon(Icons.favorite_border),
+                isLabelVisible: appState.unreadMessages > 0,
+                label: Text('${appState.unreadMessages}', style: const TextStyle(fontSize: 10)),
+                child: const Icon(Icons.send_outlined, size: 26),
               ),
               activeIcon: Badge(
-                isLabelVisible: appState.unreadNotifications > 0,
-                label: Text('${appState.unreadNotifications}', style: const TextStyle(fontSize: 10)),
-                child: const Icon(Icons.favorite),
+                isLabelVisible: appState.unreadMessages > 0,
+                label: Text('${appState.unreadMessages}', style: const TextStyle(fontSize: 10)),
+                child: const Icon(Icons.send, size: 26),
               ),
-              label: '通知',
+              label: 'DM',
             ),
+            const BottomNavigationBarItem(icon: Icon(Icons.add_box_outlined), activeIcon: Icon(Icons.add_box), label: '投稿'),
             const BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'プロフ'),
           ],
         ),

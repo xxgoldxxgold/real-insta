@@ -105,29 +105,6 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
             ],
           ),
-          // Messenger icon - Instagram style
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.send_outlined, size: 26),
-                onPressed: () => context.push('/inbox'),
-              ),
-              if (appState.unreadMessages > 0)
-                Positioned(
-                  right: 8, top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(color: AppColors.like, shape: BoxShape.circle),
-                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                    child: Text(
-                      '${appState.unreadMessages}',
-                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-            ],
-          ),
         ],
       ),
       body: _loading
