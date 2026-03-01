@@ -67,19 +67,26 @@ class _PostCardState extends State<PostCard> {
 
     return Container(
       color: AppColors.card,
-      margin: const EdgeInsets.only(bottom: 1),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Header - Instagram style: avatar + username/location + three-dot menu
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
-                UserAvatar(
-                  url: author?.avatarUrl,
-                  size: 32,
-                  onTap: () => context.push('/profile/${post.userId}'),
+                // Avatar with story-like ring
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.border, width: 1),
+                  ),
+                  child: UserAvatar(
+                    url: author?.avatarUrl,
+                    size: 32,
+                    onTap: () => context.push('/profile/${post.userId}'),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -90,36 +97,26 @@ class _PostCardState extends State<PostCard> {
                       children: [
                         Text(
                           author?.username ?? author?.name ?? '',
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                         ),
                         if (post.locationName != null)
                           Text(
                             post.locationName!,
-                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                            style: const TextStyle(fontSize: 11),
                           ),
                       ],
                     ),
                   ),
                 ),
-                if (post.userId == AuthService.userId)
-                  PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_horiz, size: 20),
-                    onSelected: (v) async {
-                      if (v == 'delete') {
-                        await PostService.deletePost(post.id);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('投稿を削除しました')));
-                        }
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'delete', child: Text('削除', style: TextStyle(color: Colors.red))),
-                    ],
-                  ),
+                // Three-dot menu - always visible like Instagram
+                GestureDetector(
+                  onTap: () => _showPostMenu(context, post),
+                  child: const Icon(Icons.more_horiz, size: 20, color: AppColors.text),
+                ),
               ],
             ),
           ),
-          // Image
+          // Image - full bleed
           GestureDetector(
             onDoubleTap: _onDoubleTap,
             onTap: () => context.push('/post/${post.id}'),
@@ -148,36 +145,30 @@ class _PostCardState extends State<PostCard> {
               ],
             ),
           ),
-          // Actions
+          // Action buttons - Instagram layout: heart comment share ... bookmark
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
             child: Row(
               children: [
-                GestureDetector(
+                _actionButton(
+                  icon: _liked ? Icons.favorite : Icons.favorite_border,
+                  color: _liked ? AppColors.like : AppColors.text,
                   onTap: _toggleLike,
-                  child: Icon(
-                    _liked ? Icons.favorite : Icons.favorite_border,
-                    color: _liked ? AppColors.like : AppColors.text,
-                    size: 24,
-                  ),
                 ),
                 const SizedBox(width: 16),
-                GestureDetector(
+                _actionButton(
+                  icon: Icons.chat_bubble_outline,
                   onTap: () => context.push('/post/${post.id}'),
-                  child: const Icon(Icons.chat_bubble_outline, size: 24),
                 ),
                 const SizedBox(width: 16),
-                GestureDetector(
-                  onTap: () => context.push('/post/${post.id}'),
-                  child: const Icon(Icons.send_outlined, size: 24),
+                _actionButton(
+                  icon: Icons.send_outlined,
+                  onTap: () {},
                 ),
                 const Spacer(),
-                GestureDetector(
+                _actionButton(
+                  icon: _bookmarked ? Icons.bookmark : Icons.bookmark_border,
                   onTap: () => setState(() => _bookmarked = !_bookmarked),
-                  child: Icon(
-                    _bookmarked ? Icons.bookmark : Icons.bookmark_border,
-                    size: 24,
-                  ),
                 ),
               ],
             ),
@@ -185,30 +176,30 @@ class _PostCardState extends State<PostCard> {
           // Likes count
           if (_likesCount > 0)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text('いいね！$_likesCount件', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+              child: Text('いいね！$_likesCount件', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
             ),
           // Caption
           if (post.caption != null && post.caption!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
               child: _buildCaption(context, author?.username ?? '', post.caption!),
             ),
           // Comments link
           if (post.commentsCount > 0)
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 0),
               child: GestureDetector(
                 onTap: () => context.push('/post/${post.id}'),
                 child: Text(
                   'コメント${post.commentsCount}件をすべて見る',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                 ),
               ),
             ),
           // Timestamp
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+            padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
             child: Text(
               timeago.format(post.createdAt, locale: 'ja'),
               style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
@@ -219,11 +210,67 @@ class _PostCardState extends State<PostCard> {
     );
   }
 
+  Widget _actionButton({required IconData icon, Color? color, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(2),
+        child: Icon(icon, size: 26, color: color ?? AppColors.text),
+      ),
+    );
+  }
+
+  void _showPostMenu(BuildContext context, Post post) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+            ),
+            if (post.userId == AuthService.userId)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: const Text('削除', style: TextStyle(color: Colors.red)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await PostService.deletePost(post.id);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('投稿を削除しました')));
+                  }
+                },
+              )
+            else ...[
+              ListTile(
+                leading: const Icon(Icons.link),
+                title: const Text('リンクをコピー'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+              ListTile(
+                leading: const Icon(Icons.share_outlined),
+                title: const Text('シェア'),
+                onTap: () => Navigator.pop(ctx),
+              ),
+            ],
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCaption(BuildContext context, String username, String caption) {
     final parts = <InlineSpan>[];
     parts.add(TextSpan(
       text: '$username ',
-      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
       recognizer: null,
     ));
 
@@ -237,7 +284,7 @@ class _PostCardState extends State<PostCard> {
       parts.add(WidgetSpan(
         child: GestureDetector(
           onTap: () => context.push('/hashtag/$tag'),
-          child: Text('#$tag', style: const TextStyle(color: AppColors.accent, fontSize: 14)),
+          child: Text('#$tag', style: const TextStyle(color: AppColors.accent, fontSize: 13)),
         ),
       ));
       lastEnd = match.end;
@@ -248,7 +295,7 @@ class _PostCardState extends State<PostCard> {
 
     return RichText(
       text: TextSpan(
-        style: const TextStyle(color: AppColors.text, fontSize: 14, height: 1.4),
+        style: const TextStyle(color: AppColors.text, fontSize: 13, height: 1.4),
         children: parts,
       ),
     );

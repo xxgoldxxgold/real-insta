@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../constants.dart';
 
 class LogoText extends StatelessWidget {
   final double fontSize;
@@ -27,7 +28,7 @@ class LogoText extends StatelessWidget {
           style: TextStyle(
             fontSize: fontSize,
             fontWeight: fontWeight,
-            color: const Color(0xFF262626),
+            color: AppColors.text,
           ),
         ),
       ],

@@ -82,10 +82,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   void _showMoreMenu() {
     showModalBottomSheet(
       context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+            ),
             if (!_isMe) ...[
               ListTile(
                 leading: const Icon(Icons.message_outlined),
@@ -158,11 +166,19 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     final p = _profile!;
     return Scaffold(
       appBar: AppBar(
-        title: Text(p.username ?? p.name),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(p.username ?? p.name, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+            const SizedBox(width: 4),
+            const Icon(Icons.keyboard_arrow_down, size: 20),
+          ],
+        ),
+        centerTitle: false,
         actions: [
           if (_isMe) ...[
-            IconButton(icon: const Icon(Icons.add_box_outlined), onPressed: () => context.push('/inbox')),
-            IconButton(icon: const Icon(Icons.menu), onPressed: () => context.push('/settings')),
+            IconButton(icon: const Icon(Icons.add_box_outlined, size: 26), onPressed: () {}),
+            IconButton(icon: const Icon(Icons.menu, size: 28), onPressed: () => context.push('/settings')),
           ] else
             IconButton(icon: const Icon(Icons.more_horiz), onPressed: _showMoreMenu),
         ],
@@ -172,26 +188,34 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildHeader(p)),
+            // Instagram-style tab bar
             SliverToBoxAdapter(
-              child: TabBar(
-                controller: _tabController,
-                indicatorColor: AppColors.text,
-                indicatorWeight: 1,
-                labelColor: AppColors.text,
-                unselectedLabelColor: AppColors.textSecondary,
-                tabs: const [
-                  Tab(icon: Icon(Icons.grid_on, size: 24)),
-                  Tab(icon: Icon(Icons.person_pin_outlined, size: 24)),
-                ],
+              child: Container(
+                decoration: const BoxDecoration(
+                  border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorColor: AppColors.text,
+                  indicatorWeight: 1,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  labelColor: AppColors.text,
+                  unselectedLabelColor: AppColors.textSecondary,
+                  dividerColor: Colors.transparent,
+                  tabs: const [
+                    Tab(icon: Icon(Icons.grid_on, size: 26)),
+                    Tab(icon: Icon(Icons.person_pin_outlined, size: 26)),
+                  ],
+                ),
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.all(1),
+              padding: EdgeInsets.zero,
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3,
-                  crossAxisSpacing: 1,
-                  mainAxisSpacing: 1,
+                  crossAxisSpacing: 2,
+                  mainAxisSpacing: 2,
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
@@ -201,8 +225,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       child: CachedNetworkImage(
                         imageUrl: post.imageUrl,
                         fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(color: AppColors.border),
-                        errorWidget: (_, __, ___) => Container(color: AppColors.border),
+                        placeholder: (_, __) => Container(color: AppColors.buttonGrey),
+                        errorWidget: (_, __, ___) => Container(color: AppColors.buttonGrey),
                       ),
                     );
                   },
@@ -218,14 +242,23 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   Widget _buildHeader(Profile p) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Avatar + Stats row
           Row(
             children: [
-              UserAvatar(url: p.avatarUrl, size: 86),
-              const SizedBox(width: 24),
+              // Avatar with ring
+              Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.border, width: 1.5),
+                ),
+                child: UserAvatar(url: p.avatarUrl, size: 80),
+              ),
+              const SizedBox(width: 28),
               Expanded(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -238,60 +271,69 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
+          // Name + Bio
           if (p.displayName?.isNotEmpty == true)
-            Text(p.displayName!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            Text(p.displayName!, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
           if (p.bio?.isNotEmpty == true)
             Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(p.bio!, style: const TextStyle(fontSize: 14)),
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(p.bio!, style: const TextStyle(fontSize: 13)),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
+          // Action Buttons - Instagram style
           if (_isMe)
-            SizedBox(
-              width: double.infinity,
-              height: 34,
-              child: ElevatedButton(
-                onPressed: () => context.push('/edit-profile'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.buttonGrey,
-                  foregroundColor: AppColors.text,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: const Text('プロフィールを編集', style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontSize: 14)),
-              ),
+            Row(
+              children: [
+                Expanded(child: _greyButton('プロフィールを編集', () => context.push('/edit-profile'))),
+                const SizedBox(width: 6),
+                Expanded(child: _greyButton('プロフィールをシェア', () {})),
+              ],
             )
           else
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: _toggleFollow,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: p.isFollowing ? AppColors.card : AppColors.accent,
-                      foregroundColor: p.isFollowing ? AppColors.text : Colors.white,
-                      side: p.isFollowing ? const BorderSide(color: AppColors.border) : null,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  flex: 2,
+                  child: SizedBox(
+                    height: 34,
+                    child: ElevatedButton(
+                      onPressed: _toggleFollow,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: p.isFollowing ? AppColors.buttonGrey : AppColors.accent,
+                        foregroundColor: p.isFollowing ? AppColors.text : Colors.white,
+                        elevation: 0,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text(
+                        p.isFollowing ? 'フォロー中' : 'フォローする',
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
                     ),
-                    child: Text(p.isFollowing ? 'フォロー中' : 'フォロー'),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
+                Expanded(
+                  flex: 2,
+                  child: _greyButton('メッセージ', () async {
+                    final conv = await DMService.getOrCreateConversation(widget.userId);
+                    if (mounted) context.push('/thread/${conv.id}');
+                  }),
+                ),
+                const SizedBox(width: 6),
                 SizedBox(
+                  width: 34,
                   height: 34,
                   child: ElevatedButton(
-                    onPressed: () async {
-                      final conv = await DMService.getOrCreateConversation(widget.userId);
-                      if (mounted) context.push('/thread/${conv.id}');
-                    },
+                    onPressed: () {},
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.buttonGrey,
-                      foregroundColor: AppColors.text,
                       elevation: 0,
+                      padding: EdgeInsets.zero,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: const Text('メッセージ', style: TextStyle(color: AppColors.text, fontWeight: FontWeight.w600, fontSize: 14)),
+                    child: const Icon(Icons.person_add_outlined, size: 16, color: AppColors.text),
                   ),
                 ),
               ],
@@ -301,12 +343,29 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
+  Widget _greyButton(String text, VoidCallback onTap) {
+    return SizedBox(
+      height: 34,
+      child: ElevatedButton(
+        onPressed: onTap,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.buttonGrey,
+          foregroundColor: AppColors.text,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+      ),
+    );
+  }
+
   Widget _statColumn(String count, String label) {
     return Column(
       children: [
-        Text(count, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+        Text(count, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+        Text(label, style: const TextStyle(fontSize: 13)),
       ],
     );
   }

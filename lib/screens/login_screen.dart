@@ -86,148 +86,183 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const LogoText(fontSize: 36),
-                const SizedBox(height: 8),
-                const Text(
-                  'リアルな写真を共有しよう',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                ),
-                const SizedBox(height: 40),
-                // Google Sign In
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton.icon(
-                    onPressed: _loading ? null : () async {
-                      if (_inApp) {
-                        _showOpenBrowserDialog();
-                        return;
-                      }
-                      setState(() { _loading = true; _error = null; });
-                      try {
-                        await AuthService.signInWithGoogle();
-                        if (mounted) context.go('/');
-                      } catch (e) {
-                        if (mounted) setState(() => _error = e.toString());
-                      } finally {
-                        if (mounted) setState(() => _loading = false);
-                      }
-                    },
-                    icon: const Text('G', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    label: const Text('Googleでログイン'),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Apple Sign In
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton.icon(
-                    onPressed: _loading ? null : () async {
-                      setState(() { _loading = true; _error = null; });
-                      try {
-                        await AuthService.signInWithApple();
-                      } catch (e) {
-                        if (mounted) setState(() => _error = e.toString());
-                      } finally {
-                        if (mounted) setState(() => _loading = false);
-                      }
-                    },
-                    icon: const Icon(Icons.apple, size: 20),
-                    label: const Text('Appleでログイン'),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    const Expanded(child: Divider(color: AppColors.border)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('または', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                    ),
-                    const Expanded(child: Divider(color: AppColors.border)),
-                  ],
-                ),
-                const SizedBox(height: 24),
-                // Email + Password
-                TextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: _inputDecoration('メールアドレス'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _passwordController,
-                  obscureText: true,
-                  decoration: _inputDecoration('パスワード'),
-                  onSubmitted: (_) => _handleEmailAuth(),
-                ),
-                if (_error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
-                  ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _handleEmailAuth,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: _loading
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(_isLogin ? 'ログイン' : '新規登録'),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _isLogin ? 'アカウントをお持ちでないですか？ ' : 'すでにアカウントをお持ちですか？ ',
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                    ),
-                    GestureDetector(
-                      onTap: () => setState(() => _isLogin = !_isLogin),
-                      child: Text(
-                        _isLogin ? '登録する' : 'ログイン',
-                        style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 13),
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(height: 32),
+                      const LogoText(fontSize: 40),
+                      const SizedBox(height: 32),
+                      // Email field - Instagram style
+                      _buildInputField(
+                        controller: _emailController,
+                        hint: 'メールアドレス',
+                        keyboardType: TextInputType.emailAddress,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 10),
+                      _buildInputField(
+                        controller: _passwordController,
+                        hint: 'パスワード',
+                        obscure: true,
+                        onSubmitted: (_) => _handleEmailAuth(),
+                      ),
+                      if (_error != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 12),
+                          child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                        ),
+                      const SizedBox(height: 16),
+                      // Login button - Instagram blue
+                      SizedBox(
+                        width: double.infinity,
+                        height: 48,
+                        child: ElevatedButton(
+                          onPressed: _loading ? null : _handleEmailAuth,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            disabledBackgroundColor: AppColors.accent.withValues(alpha: 0.5),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          child: _loading
+                              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : Text(_isLogin ? 'ログイン' : '新規登録', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // OR divider - Instagram style
+                      Row(
+                        children: [
+                          Expanded(child: Container(height: 1, color: AppColors.border)),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 16),
+                            child: Text('または', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.w600)),
+                          ),
+                          Expanded(child: Container(height: 1, color: AppColors.border)),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      // Google login
+                      _buildSocialButton(
+                        icon: const Text('G', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.accent)),
+                        label: 'Googleでログイン',
+                        onTap: () async {
+                          if (_inApp) { _showOpenBrowserDialog(); return; }
+                          setState(() { _loading = true; _error = null; });
+                          try {
+                            await AuthService.signInWithGoogle();
+                            if (mounted) context.go('/');
+                          } catch (e) {
+                            if (mounted) setState(() => _error = e.toString());
+                          } finally {
+                            if (mounted) setState(() => _loading = false);
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 10),
+                      // Apple login
+                      _buildSocialButton(
+                        icon: const Icon(Icons.apple, size: 22, color: AppColors.text),
+                        label: 'Appleでログイン',
+                        onTap: () async {
+                          setState(() { _loading = true; _error = null; });
+                          try {
+                            await AuthService.signInWithApple();
+                          } catch (e) {
+                            if (mounted) setState(() => _error = e.toString());
+                          } finally {
+                            if (mounted) setState(() => _loading = false);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ],
+              ),
             ),
-          ),
+            // Bottom signup link - Instagram style with border
+            Container(
+              decoration: const BoxDecoration(
+                border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _isLogin ? 'アカウントをお持ちでないですか？ ' : 'すでにアカウントをお持ちですか？ ',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                  GestureDetector(
+                    onTap: () => setState(() => _isLogin = !_isLogin),
+                    child: Text(
+                      _isLogin ? '登録する' : 'ログイン',
+                      style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  InputDecoration _inputDecoration(String hint) => InputDecoration(
-    hintText: hint,
-    filled: true,
-    fillColor: const Color(0xFFFAFAFA),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
-    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-  );
+  Widget _buildInputField({
+    required TextEditingController controller,
+    required String hint,
+    TextInputType? keyboardType,
+    bool obscure = false,
+    ValueChanged<String>? onSubmitted,
+  }) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        border: Border.all(color: AppColors.border, width: 1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        obscureText: obscure,
+        onSubmitted: onSubmitted,
+        style: const TextStyle(fontSize: 14),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialButton({required Widget icon, required String label, required VoidCallback onTap}) {
+    return SizedBox(
+      width: double.infinity,
+      height: 44,
+      child: TextButton(
+        onPressed: _loading ? null : onTap,
+        style: TextButton.styleFrom(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            icon,
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 14)),
+          ],
+        ),
+      ),
+    );
+  }
 }

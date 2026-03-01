@@ -79,26 +79,54 @@ class _FeedScreenState extends State<FeedScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const LogoText(fontSize: 22),
+        title: const LogoText(fontSize: 24),
         centerTitle: false,
         actions: [
-          Badge(
-            isLabelVisible: appState.unreadNotifications > 0,
-            label: Text('${appState.unreadNotifications}', style: const TextStyle(fontSize: 10)),
-            child: IconButton(
-              icon: const Icon(Icons.favorite_border, size: 26),
-              onPressed: () {
-                // Navigate to notifications tab (index 3)
-              },
-            ),
+          // Heart notification icon - Instagram style
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.favorite_border, size: 28),
+                onPressed: () {},
+              ),
+              if (appState.unreadNotifications > 0)
+                Positioned(
+                  right: 8, top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(color: AppColors.like, shape: BoxShape.circle),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '${appState.unreadNotifications}',
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
-          Badge(
-            isLabelVisible: appState.unreadMessages > 0,
-            label: Text('${appState.unreadMessages}', style: const TextStyle(fontSize: 10)),
-            child: IconButton(
-              icon: const Icon(Icons.send_outlined, size: 26),
-              onPressed: () => context.push('/inbox'),
-            ),
+          // Messenger icon - Instagram style
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chat_bubble_outline, size: 26),
+                onPressed: () => context.push('/inbox'),
+              ),
+              if (appState.unreadMessages > 0)
+                Positioned(
+                  right: 8, top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(color: AppColors.like, shape: BoxShape.circle),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      '${appState.unreadMessages}',
+                      style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -109,11 +137,18 @@ class _FeedScreenState extends State<FeedScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.photo_camera_outlined, size: 64, color: AppColors.textSecondary),
-                      const SizedBox(height: 16),
-                      const Text('フィードに投稿がありません', style: TextStyle(color: AppColors.textSecondary)),
+                      Container(
+                        width: 80, height: 80,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.text, width: 2),
+                        ),
+                        child: const Icon(Icons.photo_camera_outlined, size: 40, color: AppColors.text),
+                      ),
+                      const SizedBox(height: 20),
+                      const Text('フィードに投稿がありません', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w300)),
                       const SizedBox(height: 8),
-                      const Text('ユーザーをフォローして投稿を見よう', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      const Text('ユーザーをフォローして投稿を見よう', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                     ],
                   ),
                 )

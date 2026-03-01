@@ -120,43 +120,57 @@ class _ThreadScreenState extends State<ThreadScreen> {
                           },
                         ),
                 ),
-                // Input
+                // Input - Instagram style rounded pill
                 Container(
-                  decoration: const BoxDecoration(
-                    color: AppColors.card,
-                    border: Border(top: BorderSide(color: AppColors.border, width: 0.5)),
-                  ),
-                  padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-                  child: Row(
-                    children: [
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          decoration: InputDecoration(
-                            hintText: 'メッセージを入力...',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              borderSide: const BorderSide(color: AppColors.border),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              borderSide: const BorderSide(color: AppColors.border),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            isDense: true,
+                  padding: EdgeInsets.fromLTRB(16, 8, 8, 8 + MediaQuery.of(context).padding.bottom),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.border),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Row(
+                      children: [
+                        const SizedBox(width: 4),
+                        Container(
+                          width: 34, height: 34,
+                          decoration: const BoxDecoration(
+                            color: AppColors.accent,
+                            shape: BoxShape.circle,
                           ),
-                          onSubmitted: (_) => _sendMessage(),
+                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
                         ),
-                      ),
-                      IconButton(
-                        icon: Icon(
-                          Icons.send,
-                          color: _sending ? AppColors.textSecondary : AppColors.accent,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _messageController,
+                            decoration: const InputDecoration(
+                              hintText: 'メッセージを入力...',
+                              hintStyle: TextStyle(color: AppColors.textSecondary),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.symmetric(vertical: 10),
+                              isDense: true,
+                            ),
+                            onSubmitted: (_) => _sendMessage(),
+                          ),
                         ),
-                        onPressed: _sending ? null : _sendMessage,
-                      ),
-                    ],
+                        if (_messageController.text.trim().isNotEmpty)
+                          TextButton(
+                            onPressed: _sending ? null : _sendMessage,
+                            child: Text(
+                              '送信',
+                              style: TextStyle(
+                                color: _sending ? AppColors.textSecondary : AppColors.accent,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          )
+                        else ...[
+                          IconButton(icon: const Icon(Icons.mic_none, size: 24), onPressed: () {}, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
+                          IconButton(icon: const Icon(Icons.image_outlined, size: 24), onPressed: () {}, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
+                          const SizedBox(width: 4),
+                        ],
+                      ],
+                    ),
                   ),
                 ),
               ],
