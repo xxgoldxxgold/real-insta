@@ -53,6 +53,14 @@ class AuthService {
     await supabase.auth.signUp(email: email, password: password);
   }
 
+  static Future<void> sendOtp(String email) async {
+    await supabase.auth.signInWithOtp(email: email);
+  }
+
+  static Future<void> verifyOtp(String email, String code) async {
+    await supabase.auth.verifyOTP(email: email, token: code, type: OtpType.email);
+  }
+
   static Future<void> signOut() async {
     await supabase.auth.signOut();
   }
