@@ -28,6 +28,7 @@ class AuthService {
     await supabase.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: _redirectUrl,
+      queryParams: {'prompt': 'select_account'},
     );
   }
 
