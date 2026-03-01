@@ -109,7 +109,7 @@ class _FeedScreenState extends State<FeedScreen> {
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.chat_bubble_outline, size: 26),
+                icon: const Icon(Icons.send_outlined, size: 26),
                 onPressed: () => context.push('/inbox'),
               ),
               if (appState.unreadMessages > 0)

@@ -25,6 +25,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
   void initState() {
     super.initState();
     _load();
+    _messageController.addListener(() => setState(() {}));
   }
 
   @override
