@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../constants.dart';
 import '../services.dart';
@@ -17,6 +18,13 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
   bool _loading = false;
   String? _error;
+  late bool _inApp;
+
+  @override
+  void initState() {
+    super.initState();
+    _inApp = isInAppBrowser;
+  }
 
   @override
   void dispose() {
@@ -30,10 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
     if (email.isEmpty || password.isEmpty) return;
 
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    setState(() { _loading = true; _error = null; });
     try {
       if (_isLogin) {
         await AuthService.signInWithEmail(email, password);
@@ -43,21 +48,6 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) context.go('/');
     } catch (e) {
       setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _handleGoogleSignIn() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      await AuthService.signInWithGoogle();
-      if (mounted) context.go('/');
-    } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -81,12 +71,77 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
                 ),
                 const SizedBox(height: 40),
+                // In-app browser: show open-in-browser banner
+                if (_inApp) ...[
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE3F2FD),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.accent.withValues(alpha: 0.3)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.open_in_browser, color: AppColors.accent, size: 20),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Googleログインするには\nSafari/Chromeで開いてください',
+                                style: TextStyle(color: Color(0xFF1565C0), fontSize: 13, fontWeight: FontWeight.w600, height: 1.4),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Clipboard.setData(const ClipboardData(text: 'https://real-insta.com'));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('URLをコピーしました。ブラウザに貼り付けて開いてください'),
+                                  duration: Duration(seconds: 3),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.copy, size: 16),
+                            label: const Text('URLをコピー', style: TextStyle(fontSize: 13)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.accent,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'またはメールアドレスでログインできます',
+                          style: TextStyle(color: Color(0xFF1565C0), fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
                 // Google Sign In
                 SizedBox(
                   width: double.infinity,
                   height: 44,
                   child: OutlinedButton.icon(
-                    onPressed: _loading ? null : _handleGoogleSignIn,
+                    onPressed: (_loading || _inApp) ? null : () async {
+                      setState(() => _loading = true);
+                      try {
+                        await AuthService.signInWithGoogle();
+                      } catch (e) {
+                        if (mounted) setState(() => _error = e.toString());
+                      } finally {
+                        if (mounted) setState(() => _loading = false);
+                      }
+                    },
                     icon: const Text('G', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                     label: const Text('Googleでログイン'),
                     style: OutlinedButton.styleFrom(
@@ -101,7 +156,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 44,
                   child: OutlinedButton.icon(
-                    onPressed: _loading ? null : () async {
+                    onPressed: (_loading || _inApp) ? null : () async {
                       setState(() => _loading = true);
                       try {
                         await AuthService.signInWithApple();
@@ -125,7 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Expanded(child: Divider(color: AppColors.border)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('または', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      child: Text(_inApp ? 'メールでログイン' : 'または', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                     ),
                     const Expanded(child: Divider(color: AppColors.border)),
                   ],

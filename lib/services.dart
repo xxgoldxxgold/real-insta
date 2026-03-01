@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,37 +6,28 @@ import 'models.dart';
 
 final supabase = Supabase.instance.client;
 
+@JS('window._isInAppBrowser')
+external bool? get _jsIsInAppBrowser;
+
+bool get isInAppBrowser {
+  if (!kIsWeb) return false;
+  try {
+    return _jsIsInAppBrowser ?? false;
+  } catch (_) {
+    return false;
+  }
+}
+
 class AuthService {
   static User? get currentUser => supabase.auth.currentUser;
   static String? get userId => currentUser?.id;
   static Stream<AuthState> get authStateChanges => supabase.auth.onAuthStateChange;
 
   static Future<void> signInWithGoogle() async {
-    if (kIsWeb) {
-      // Use Google Identity Services ID token flow (works in WebView)
-      final idToken = await _getGoogleIdToken();
-      if (idToken != null) {
-        await supabase.auth.signInWithIdToken(
-          provider: OAuthProvider.google,
-          idToken: idToken,
-        );
-        return;
-      }
-    }
-    // Fallback to OAuth redirect
     await supabase.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: _redirectUrl,
     );
-  }
-
-  static Future<String?> _getGoogleIdToken() async {
-    if (!kIsWeb) return null;
-    try {
-      return await _callGoogleSignIn();
-    } catch (_) {
-      return null;
-    }
   }
 
   static Future<void> signInWithApple() async {
@@ -61,19 +51,6 @@ class AuthService {
 
   static String get _redirectUrl {
     return 'https://real-insta.com/';
-  }
-}
-
-@JS('triggerGoogleSignIn')
-external JSPromise<JSString?> _jsTriggerGoogleSignIn();
-
-Future<String?> _callGoogleSignIn() async {
-  if (!kIsWeb) return null;
-  try {
-    final result = await _jsTriggerGoogleSignIn().toDart;
-    return result?.toDart;
-  } catch (_) {
-    return null;
   }
 }
 
