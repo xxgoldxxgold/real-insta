@@ -32,14 +32,6 @@ class AuthService {
   static Stream<AuthState> get authStateChanges => supabase.auth.onAuthStateChange;
 
   static Future<void> signInWithGoogle() async {
-    if (kIsWeb && isInAppBrowser) {
-      // WebView: open OAuth URL in system browser
-      final oauthUrl = '${supabaseUrl}/auth/v1/authorize'
-          '?provider=google'
-          '&redirect_to=${Uri.encodeComponent(_redirectUrl)}';
-      openInSystemBrowser(oauthUrl);
-      return;
-    }
     await supabase.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: _redirectUrl,

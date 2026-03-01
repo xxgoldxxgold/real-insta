@@ -17,6 +17,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
   bool _loading = false;
   String? _error;
+  final bool _inApp = isInAppBrowser;
 
   @override
   void dispose() {
@@ -63,31 +64,33 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
                 ),
                 const SizedBox(height: 40),
-                // Google Sign In
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton.icon(
-                    onPressed: _loading ? null : () async {
-                      setState(() { _loading = true; _error = null; });
-                      try {
-                        await AuthService.signInWithGoogle();
-                        if (mounted) context.go('/');
-                      } catch (e) {
-                        if (mounted) setState(() => _error = e.toString());
-                      } finally {
-                        if (mounted) setState(() => _loading = false);
-                      }
-                    },
-                    icon: const Text('G', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    label: const Text('Googleでログイン'),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                // Google Sign In (hidden in WebView - Google blocks it)
+                if (!_inApp) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      onPressed: _loading ? null : () async {
+                        setState(() { _loading = true; _error = null; });
+                        try {
+                          await AuthService.signInWithGoogle();
+                          if (mounted) context.go('/');
+                        } catch (e) {
+                          if (mounted) setState(() => _error = e.toString());
+                        } finally {
+                          if (mounted) setState(() => _loading = false);
+                        }
+                      },
+                      icon: const Text('G', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      label: const Text('Googleでログイン'),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppColors.border),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
                 // Apple Sign In
                 SizedBox(
                   width: double.infinity,
@@ -117,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     const Expanded(child: Divider(color: AppColors.border)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('または', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                      child: Text(_inApp ? 'メールでログイン' : 'または', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                     ),
                     const Expanded(child: Divider(color: AppColors.border)),
                   ],
@@ -199,6 +202,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
+                if (_inApp) ...[
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Googleログインを使うには\nSafari・Chromeで real-insta.com を開いてください',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11, height: 1.5),
+                  ),
+                ],
               ],
             ),
           ),
