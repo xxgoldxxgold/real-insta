@@ -1,29 +1,22 @@
 import 'dart:typed_data';
+import 'dart:js_interop';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:js_interop';
-import 'constants.dart';
 import 'models.dart';
 
 final supabase = Supabase.instance.client;
 
-@JS('window._isInAppBrowser')
-external bool? get _jsIsInAppBrowser;
-
-@JS('openInSystemBrowser')
-external void _jsOpenInSystemBrowser(JSString url);
+@JS('navigator.userAgent')
+external JSString get _jsUserAgent;
 
 bool get isInAppBrowser {
   if (!kIsWeb) return false;
   try {
-    return _jsIsInAppBrowser ?? false;
+    final ua = _jsUserAgent.toDart;
+    return RegExp(r'Line/|FBAV/|FBAN/|Instagram|Twitter|MicroMessenger', caseSensitive: false).hasMatch(ua);
   } catch (_) {
     return false;
   }
-}
-
-void openInSystemBrowser(String url) {
-  _jsOpenInSystemBrowser(url.toJS);
 }
 
 class AuthService {

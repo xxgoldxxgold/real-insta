@@ -29,6 +29,7 @@
       border-radius: 50%; animation: spin 0.8s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    #error-msg { display: none; color: #ed4956; font-size: 13px; margin-top: 16px; max-width: 300px; text-align: center; }
   </style>
 </head>
 <body>
@@ -37,23 +38,60 @@
       <img src="assets/assets/logo.jpg" alt="" style="height:36px">
       <h1 style="margin:0">Real-Insta</h1>
     </div>
-    <div class="spinner"></div>
+    <div class="spinner" id="spinner"></div>
+    <div id="error-msg"></div>
   </div>
   <script>
+    // Clear stale service workers on load
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var r of registrations) {
+          r.unregister();
+        }
+      });
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (var name of names) {
+            caches.delete(name);
+          }
+        });
+      }
+    }
+
     window.addEventListener('flutter-first-frame', function() {
       var el = document.getElementById('loading');
       if (el) el.remove();
     });
+
     // Detect in-app browser
     function isInAppBrowser() {
       var ua = navigator.userAgent || '';
       return /Line\/|FBAV\/|FBAN\/|Instagram|Twitter|MicroMessenger/i.test(ua);
     }
     window._isInAppBrowser = isInAppBrowser();
-    // Open URL in system browser (Safari/Chrome)
-    function openInSystemBrowser(url) {
-      window.open(url, '_blank') || (window.location.href = url);
-    }
+
+    // Global error handler - show error on screen
+    window.onerror = function(msg, url, line, col, error) {
+      var el = document.getElementById('error-msg');
+      if (el) {
+        el.style.display = 'block';
+        el.textContent = 'Error: ' + msg;
+      }
+    };
+
+    // Timeout: if Flutter hasn't loaded in 15 seconds, show message
+    setTimeout(function() {
+      var el = document.getElementById('loading');
+      if (el) {
+        var errEl = document.getElementById('error-msg');
+        if (errEl) {
+          errEl.style.display = 'block';
+          errEl.innerHTML = '読み込みに時間がかかっています。<br>ページを再読み込みしてください。';
+        }
+        var spinner = document.getElementById('spinner');
+        if (spinner) spinner.style.display = 'none';
+      }
+    }, 15000);
   </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
