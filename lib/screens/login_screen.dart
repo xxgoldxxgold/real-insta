@@ -15,19 +15,15 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _otpController = TextEditingController();
   bool _isLogin = true;
   bool _loading = false;
   String? _error;
   final bool _inApp = isInAppBrowser;
-  bool _otpSent = false;
-  String? _otpEmail;
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _otpController.dispose();
     super.dispose();
   }
 
@@ -43,38 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await AuthService.signUpWithEmail(email, password);
       }
-      if (mounted) context.go('/');
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _sendOtp() async {
-    final email = _emailController.text.trim();
-    if (email.isEmpty) return;
-
-    setState(() { _loading = true; _error = null; });
-    try {
-      await AuthService.sendOtp(email);
-      if (mounted) {
-        setState(() { _otpSent = true; _otpEmail = email; });
-      }
-    } catch (e) {
-      setState(() => _error = e.toString());
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _verifyOtp() async {
-    final code = _otpController.text.trim();
-    if (code.isEmpty || _otpEmail == null) return;
-
-    setState(() { _loading = true; _error = null; });
-    try {
-      await AuthService.verifyOtp(_otpEmail!, code);
       if (mounted) context.go('/');
     } catch (e) {
       setState(() => _error = e.toString());
@@ -135,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
                 ),
                 const SizedBox(height: 40),
-                // Google Sign In — always visible
+                // Google Sign In
                 SizedBox(
                   width: double.infinity,
                   height: 44,
@@ -199,124 +163,57 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: 24),
-                // --- In-app browser: OTP flow ---
-                if (_inApp) ...[
-                  if (!_otpSent) ...[
-                    TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: _inputDecoration('メールアドレス'),
-                      onSubmitted: (_) => _sendOtp(),
+                // Email + Password
+                TextField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: _inputDecoration('メールアドレス'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  decoration: _inputDecoration('パスワード'),
+                  onSubmitted: (_) => _handleEmailAuth(),
+                ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                  ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: ElevatedButton(
+                    onPressed: _loading ? null : _handleEmailAuth,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.accent,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    if (_error != null) _errorWidget(),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : _sendOtp,
-                        style: _primaryButtonStyle(),
-                        child: _loading ? _loadingIndicator() : const Text('認証コードを送信'),
-                      ),
+                    child: _loading
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text(_isLogin ? 'ログイン' : '新規登録'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _isLogin ? 'アカウントをお持ちでないですか？ ' : 'すでにアカウントをお持ちですか？ ',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     ),
-                  ] else ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F5E9),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle, color: Color(0xFF4CAF50), size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '$_otpEmail に認証コードを送信しました',
-                              style: const TextStyle(fontSize: 12, color: Color(0xFF2E7D32)),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: _otpController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 24, letterSpacing: 8),
-                      decoration: InputDecoration(
-                        hintText: '000000',
-                        hintStyle: TextStyle(color: Colors.grey.shade300, fontSize: 24, letterSpacing: 8),
-                        filled: true,
-                        fillColor: const Color(0xFFFAFAFA),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                      onSubmitted: (_) => _verifyOtp(),
-                    ),
-                    if (_error != null) _errorWidget(),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 44,
-                      child: ElevatedButton(
-                        onPressed: _loading ? null : _verifyOtp,
-                        style: _primaryButtonStyle(),
-                        child: _loading ? _loadingIndicator() : const Text('ログイン'),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
                     GestureDetector(
-                      onTap: () => setState(() { _otpSent = false; _otpEmail = null; _otpController.clear(); _error = null; }),
-                      child: const Text('メールアドレスを変更', style: TextStyle(color: AppColors.accent, fontSize: 13)),
+                      onTap: () => setState(() => _isLogin = !_isLogin),
+                      child: Text(
+                        _isLogin ? '登録する' : 'ログイン',
+                        style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
                     ),
                   ],
-                ],
-                // --- Normal browser: email/password flow ---
-                if (!_inApp) ...[
-                  TextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: _inputDecoration('メールアドレス'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _passwordController,
-                    obscureText: true,
-                    decoration: _inputDecoration('パスワード'),
-                    onSubmitted: (_) => _handleEmailAuth(),
-                  ),
-                  if (_error != null) _errorWidget(),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 44,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _handleEmailAuth,
-                      style: _primaryButtonStyle(),
-                      child: _loading ? _loadingIndicator() : Text(_isLogin ? 'ログイン' : '新規登録'),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        _isLogin ? 'アカウントをお持ちでないですか？ ' : 'すでにアカウントをお持ちですか？ ',
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                      ),
-                      GestureDetector(
-                        onTap: () => setState(() => _isLogin = !_isLogin),
-                        child: Text(
-                          _isLogin ? '登録する' : 'ログイン',
-                          style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ],
             ),
           ),
@@ -332,18 +229,5 @@ class _LoginScreenState extends State<LoginScreen> {
     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
     enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.border)),
     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-  );
-
-  ButtonStyle _primaryButtonStyle() => ElevatedButton.styleFrom(
-    backgroundColor: AppColors.accent,
-    foregroundColor: Colors.white,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-  );
-
-  Widget _loadingIndicator() => const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white));
-
-  Widget _errorWidget() => Padding(
-    padding: const EdgeInsets.only(top: 12),
-    child: Text(_error!, style: const TextStyle(color: Colors.red, fontSize: 12)),
   );
 }
