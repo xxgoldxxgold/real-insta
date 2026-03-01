@@ -50,15 +50,9 @@
       return /Line\/|FBAV\/|FBAN\/|Instagram|Twitter|MicroMessenger/i.test(ua);
     }
     window._isInAppBrowser = isInAppBrowser();
-    // Open in external browser
-    function openInExternalBrowser() {
-      var url = window.location.href;
-      // iOS: try intent URL to open Safari
-      window.location.href = url;
-      // Android: try intent
-      setTimeout(function() {
-        window.open(url, '_system');
-      }, 300);
+    // Open URL in system browser (Safari/Chrome)
+    function openInSystemBrowser(url) {
+      window.open(url, '_blank') || (window.location.href = url);
     }
   </script>
   <script src="flutter_bootstrap.js" async></script>

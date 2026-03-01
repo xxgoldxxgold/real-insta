@@ -2,12 +2,16 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:js_interop';
+import 'constants.dart';
 import 'models.dart';
 
 final supabase = Supabase.instance.client;
 
 @JS('window._isInAppBrowser')
 external bool? get _jsIsInAppBrowser;
+
+@JS('openInSystemBrowser')
+external void _jsOpenInSystemBrowser(JSString url);
 
 bool get isInAppBrowser {
   if (!kIsWeb) return false;
@@ -18,12 +22,24 @@ bool get isInAppBrowser {
   }
 }
 
+void openInSystemBrowser(String url) {
+  _jsOpenInSystemBrowser(url.toJS);
+}
+
 class AuthService {
   static User? get currentUser => supabase.auth.currentUser;
   static String? get userId => currentUser?.id;
   static Stream<AuthState> get authStateChanges => supabase.auth.onAuthStateChange;
 
   static Future<void> signInWithGoogle() async {
+    if (kIsWeb && isInAppBrowser) {
+      // WebView: open OAuth URL in system browser
+      final oauthUrl = '${supabaseUrl}/auth/v1/authorize'
+          '?provider=google'
+          '&redirect_to=${Uri.encodeComponent(_redirectUrl)}';
+      openInSystemBrowser(oauthUrl);
+      return;
+    }
     await supabase.auth.signInWithOAuth(
       OAuthProvider.google,
       redirectTo: _redirectUrl,
