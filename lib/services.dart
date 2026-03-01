@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:js_interop';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 
@@ -189,6 +191,9 @@ class PostService {
   }
 
   static Future<Post> createPost({required Uint8List imageBytes, required String ext, String? caption, String? locationName}) async {
+    // AI image check
+    await _checkImageWithAI(imageBytes, ext);
+
     final uid = AuthService.userId!;
     final path = '$uid/${DateTime.now().millisecondsSinceEpoch}.$ext';
     await supabase.storage.from('ri-posts').uploadBinary(path, imageBytes, fileOptions: const FileOptions(upsert: true));
@@ -202,6 +207,28 @@ class PostService {
     }).select('*, ri_profiles!inner(*)').single();
 
     return Post.fromJson(data);
+  }
+
+  static Future<void> _checkImageWithAI(Uint8List imageBytes, String ext) async {
+    try {
+      final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
+      final b64 = 'data:$mimeType;base64,${base64Encode(imageBytes)}';
+      final resp = await http.post(
+        Uri.parse('https://real-insta.com/api/check-image.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'image': b64}),
+      ).timeout(const Duration(seconds: 30));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body);
+        if (data['allowed'] == false) {
+          throw Exception(data['reason'] ?? 'AI加工された画像は投稿できません');
+        }
+      }
+      // Non-200 or parse error -> fail open (allow posting)
+    } catch (e) {
+      if (e is Exception && e.toString().contains('AI加工')) rethrow;
+      // Network error etc -> fail open
+    }
   }
 
   static Future<void> deletePost(String postId) async {

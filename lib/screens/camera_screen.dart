@@ -168,7 +168,14 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+        final msg = e.toString().contains('AI加工')
+            ? 'AI加工・AI生成された画像は投稿できません'
+            : 'エラー: $e';
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg),
+          backgroundColor: e.toString().contains('AI加工') ? Colors.red.shade700 : null,
+          duration: const Duration(seconds: 4),
+        ));
       }
     } finally {
       if (mounted) setState(() => _posting = false);
