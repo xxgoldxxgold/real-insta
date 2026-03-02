@@ -20,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   bool _checkedOnboarding = false;
+  Key _cameraKey = UniqueKey();
 
   @override
   void initState() {
@@ -50,7 +51,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const FeedScreen(),
       const ExploreScreen(),
       const InboxScreen(),
-      const CameraScreen(),
+      CameraScreen(key: _cameraKey),
       ProfileScreen(userId: uid),
     ];
 
@@ -62,7 +63,14 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
+          onTap: (i) {
+            if (i == 3 && _currentIndex == 3) {
+              // 「+」タブ再タップ → カメラ画面をリセットするためキーを更新
+              setState(() => _cameraKey = UniqueKey());
+            } else {
+              setState(() => _currentIndex = i);
+            }
+          },
           type: BottomNavigationBarType.fixed,
           backgroundColor: AppColors.card,
           selectedItemColor: AppColors.text,
