@@ -283,8 +283,13 @@ if ($result && isset($result['recommendation'])) {
     $summaryJa = $result['summary_ja'] ?? '';
     $flags = $result['flags'] ?? [];
 
-    // Determine if blocked based on recommendation
-    $blocked = ($recommendation === 'reject');
+    // Server-side enforcement: don't trust GPT's recommendation alone
+    // GPT sometimes returns "review" even for manipulation_score > 70
+    $blocked = ($recommendation === 'reject')
+            || ($manipScore >= 50)       // Our threshold: 50+ manipulation → block
+            || ($aiScore >= 50)          // 50+ AI generation → block
+            || ($verdict === 'manipulated')
+            || ($verdict === 'ai_generated');
 
     $output = [
         'allowed' => !$blocked,

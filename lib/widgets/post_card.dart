@@ -10,8 +10,9 @@ import 'user_avatar.dart';
 class PostCard extends StatefulWidget {
   final Post post;
   final VoidCallback? onLikeChanged;
+  final VoidCallback? onDeleted;
 
-  const PostCard({super.key, required this.post, this.onLikeChanged});
+  const PostCard({super.key, required this.post, this.onLikeChanged, this.onDeleted});
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -22,12 +23,30 @@ class _PostCardState extends State<PostCard> {
   late int _likesCount;
   bool _showHeart = false;
   bool _bookmarked = false;
+  double _imageRatio = 1.0;
 
   @override
   void initState() {
     super.initState();
     _liked = widget.post.isLiked;
     _likesCount = widget.post.likesCount;
+    _resolveImageRatio();
+  }
+
+  void _resolveImageRatio() {
+    final provider = CachedNetworkImageProvider(widget.post.imageUrl);
+    provider.resolve(const ImageConfiguration()).addListener(
+      ImageStreamListener((ImageInfo info, bool _) {
+        final w = info.image.width.toDouble();
+        final h = info.image.height.toDouble();
+        if (w > 0 && h > 0 && mounted) {
+          final ratio = (w / h).clamp(4.0 / 5.0, 1.91);
+          if ((ratio - _imageRatio).abs() > 0.01) {
+            setState(() => _imageRatio = ratio);
+          }
+        }
+      }),
+    );
   }
 
   Future<void> _toggleLike() async {
@@ -124,7 +143,7 @@ class _PostCardState extends State<PostCard> {
               alignment: Alignment.center,
               children: [
                 AspectRatio(
-                  aspectRatio: 1,
+                  aspectRatio: _imageRatio,
                   child: CachedNetworkImage(
                     imageUrl: post.imageUrl,
                     fit: BoxFit.cover,
@@ -244,6 +263,7 @@ class _PostCardState extends State<PostCard> {
                   await PostService.deletePost(post.id);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('投稿を削除しました')));
+                    widget.onDeleted?.call();
                   }
                 },
               )

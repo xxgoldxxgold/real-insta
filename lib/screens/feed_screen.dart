@@ -77,6 +77,11 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
 
+    if (appState.feedNeedsRefresh) {
+      appState.feedNeedsRefresh = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadPosts());
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const LogoText(fontSize: 24),
@@ -141,7 +146,13 @@ class _FeedScreenState extends State<FeedScreen> {
                           child: Center(child: CircularProgressIndicator()),
                         );
                       }
-                      return PostCard(post: _posts[index]);
+                      return PostCard(
+                        post: _posts[index],
+                        onDeleted: () {
+                          setState(() => _posts.removeAt(index));
+                          context.read<AppState>().requestFeedRefresh();
+                        },
+                      );
                     },
                   ),
                 ),
