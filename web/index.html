@@ -10,7 +10,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Real-Insta">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=2"/>
   <title>Real-Insta</title>
   <link rel="manifest" href="manifest.json">
   <style>
@@ -42,20 +42,56 @@
     <div id="error-msg"></div>
   </div>
   <script>
-    // Clear stale service workers on load
+    // Register push notification service worker
     if ('serviceWorker' in navigator) {
+      // Clear old Flutter service workers & caches, but keep push-sw
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
         for (var r of registrations) {
+          if (r.active && r.active.scriptURL && r.active.scriptURL.indexOf('push-sw.js') !== -1) continue;
           r.unregister();
         }
       });
       if ('caches' in window) {
         caches.keys().then(function(names) {
-          for (var name of names) {
-            caches.delete(name);
-          }
+          for (var name of names) { caches.delete(name); }
         });
       }
+      // Register push SW
+      navigator.serviceWorker.register('/push-sw.js').then(function(reg) {
+        console.log('Push SW registered', reg.scope);
+        window._pushSwReg = reg;
+      }).catch(function(e) { console.warn('Push SW failed', e); });
+    }
+
+    // JS helpers called from Dart via dart:js_interop
+    window._subscribePush = function(vapidKey) {
+      return new Promise(function(resolve, reject) {
+        if (!window._pushSwReg) { reject('No SW registration'); return; }
+        window._pushSwReg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: _urlBase64ToUint8Array(vapidKey)
+        }).then(function(sub) {
+          resolve(JSON.stringify(sub.toJSON()));
+        }).catch(reject);
+      });
+    };
+
+    window._getPushSubscription = function() {
+      return new Promise(function(resolve) {
+        if (!window._pushSwReg) { resolve(null); return; }
+        window._pushSwReg.pushManager.getSubscription().then(function(sub) {
+          resolve(sub ? JSON.stringify(sub.toJSON()) : null);
+        }).catch(function() { resolve(null); });
+      });
+    };
+
+    function _urlBase64ToUint8Array(base64String) {
+      var padding = '='.repeat((4 - base64String.length % 4) % 4);
+      var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+      var rawData = atob(base64);
+      var outputArray = new Uint8Array(rawData.length);
+      for (var i = 0; i < rawData.length; ++i) { outputArray[i] = rawData.charCodeAt(i); }
+      return outputArray;
     }
 
     window.addEventListener('flutter-first-frame', function() {

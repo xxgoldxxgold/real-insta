@@ -20,6 +20,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
   bool _loading = true;
   bool _sending = false;
   RealtimeChannel? _channel;
+  String? _receiverId;
+  String? _myDisplayName;
 
   @override
   void initState() {
@@ -40,6 +42,22 @@ class _ThreadScreenState extends State<ThreadScreen> {
     try {
       final messages = await DMService.getMessages(widget.conversationId);
       await DMService.markMessagesRead(widget.conversationId);
+
+      // Load conversation to get receiver ID
+      final uid = AuthService.userId!;
+      final convData = await supabase
+          .from('ri_conversations')
+          .select()
+          .eq('id', widget.conversationId)
+          .maybeSingle();
+      if (convData != null) {
+        final conv = Conversation.fromJson(convData);
+        _receiverId = conv.user1Id == uid ? conv.user2Id : conv.user1Id;
+      }
+      // Load my display name for push notification
+      final myProfile = await ProfileService.getProfile(uid);
+      _myDisplayName = myProfile?.displayName ?? myProfile?.username ?? '';
+
       if (mounted) {
         setState(() {
           _messages = messages.reversed.toList();
@@ -56,6 +74,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
   void _subscribe() {
     _channel = DMService.subscribeToMessages(widget.conversationId, (message) {
       if (mounted) {
+        final exists = _messages.any((m) => m.id == message.id);
+        if (exists) return;
         setState(() => _messages.add(message));
         _scrollToBottom();
         DMService.markMessagesRead(widget.conversationId);
@@ -81,7 +101,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
     _messageController.clear();
     setState(() => _sending = true);
     try {
-      final message = await DMService.sendMessage(widget.conversationId, text);
+      final message = await DMService.sendMessage(widget.conversationId, text, receiverId: _receiverId, senderName: _myDisplayName);
       // Message will appear via realtime subscription, but add locally too to avoid delay
       if (mounted) {
         final exists = _messages.any((m) => m.id == message.id);

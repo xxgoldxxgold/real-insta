@@ -6,11 +6,24 @@ import 'dart:html' as html;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
+import 'constants.dart' show vapidPublicKey;
 
 final supabase = Supabase.instance.client;
 
 @JS('navigator.userAgent')
 external JSString get _jsUserAgent;
+
+@JS('Notification.permission')
+external JSString? get _notificationPermission;
+
+@JS('Notification.requestPermission')
+external JSPromise<JSString> _requestNotificationPermission();
+
+@JS('window._subscribePush')
+external JSPromise<JSString> _jsSubscribePush(JSString vapidKey);
+
+@JS('window._getPushSubscription')
+external JSPromise<JSString?> _jsGetPushSubscription();
 
 bool get isInAppBrowser {
   if (!kIsWeb) return false;
@@ -513,13 +526,37 @@ class DMService {
     return (data as List).map((e) => Message.fromJson(e)).toList();
   }
 
-  static Future<Message> sendMessage(String conversationId, String content) async {
+  static Future<Message> sendMessage(String conversationId, String content, {String? receiverId, String? senderName}) async {
     final data = await supabase.from('ri_messages').insert({
       'conversation_id': conversationId,
       'sender_id': AuthService.userId!,
       'content': content,
     }).select().single();
-    return Message.fromJson(data);
+    final msg = Message.fromJson(data);
+
+    // Fire-and-forget push notification
+    if (receiverId != null && kIsWeb) {
+      _sendPushNotification(conversationId, receiverId, senderName ?? '', content);
+    }
+
+    return msg;
+  }
+
+  static void _sendPushNotification(String conversationId, String receiverId, String senderName, String content) {
+    try {
+      final token = supabase.auth.currentSession?.accessToken;
+      if (token == null) return;
+      final xhr = html.HttpRequest();
+      xhr.open('POST', 'https://real-insta.com/api/notify-dm.php');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('Authorization', 'Bearer $token');
+      xhr.send(jsonEncode({
+        'receiver_id': receiverId,
+        'sender_name': senderName,
+        'message_text': content,
+        'conversation_id': conversationId,
+      }));
+    } catch (_) {}
   }
 
   static Future<void> markMessagesRead(String conversationId) async {
@@ -560,6 +597,22 @@ class DMService {
       },
     ).subscribe();
   }
+
+  static RealtimeChannel subscribeToAllMessages(void Function(Message) onMessage) {
+    return supabase.channel('all_messages').onPostgresChanges(
+      event: PostgresChangeEvent.insert,
+      schema: 'public',
+      table: 'ri_messages',
+      callback: (payload) {
+        try {
+          final msg = Message.fromJson(payload.newRecord);
+          onMessage(msg);
+        } catch (e) {
+          print('DM realtime parse error: $e, payload: ${payload.newRecord}');
+        }
+      },
+    ).subscribe();
+  }
 }
 
 class HashtagService {
@@ -580,5 +633,67 @@ class HashtagService {
       results.add({'name': tag['name'], 'count': count.count});
     }
     return results;
+  }
+}
+
+class PushNotificationService {
+  static bool _initialized = false;
+
+  static Future<void> initialize() async {
+    if (_initialized || !kIsWeb) return;
+    _initialized = true;
+    try {
+      // Check if Notification API is available
+      final perm = _notificationPermission?.toDart;
+      if (perm == null) return; // Notification API not supported
+
+      if (perm == 'granted') {
+        await _subscribe();
+      } else if (perm == 'default') {
+        // Request permission
+        final result = (await _requestNotificationPermission().toDart).toDart;
+        if (result == 'granted') {
+          await _subscribe();
+        }
+      }
+    } catch (e) {
+      print('Push init error: $e');
+    }
+  }
+
+  static Future<void> _subscribe() async {
+    try {
+      // Wait a moment for SW registration to complete
+      await Future.delayed(const Duration(seconds: 1));
+
+      // Check existing subscription first
+      String? existingSub;
+      try {
+        existingSub = (await _jsGetPushSubscription().toDart)?.toDart;
+      } catch (_) {}
+
+      String subJson;
+      if (existingSub != null) {
+        subJson = existingSub;
+      } else {
+        subJson = (await _jsSubscribePush(vapidPublicKey.toJS).toDart).toDart;
+      }
+
+      final sub = jsonDecode(subJson) as Map<String, dynamic>;
+      final token = supabase.auth.currentSession?.accessToken;
+      if (token == null) return;
+
+      // Send subscription to server
+      final xhr = html.HttpRequest();
+      xhr.open('POST', 'https://real-insta.com/api/push-subscribe.php');
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.setRequestHeader('Authorization', 'Bearer $token');
+      xhr.send(jsonEncode({
+        'endpoint': sub['endpoint'],
+        'keys': sub['keys'],
+      }));
+    } catch (e) {
+      print('Push subscribe error: $e');
+    }
   }
 }

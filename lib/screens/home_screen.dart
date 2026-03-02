@@ -1,8 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' as html;
 import '../app.dart';
 import '../constants.dart';
+import '../models.dart';
 import '../services.dart';
 import 'feed_screen.dart';
 import 'explore_screen.dart';
@@ -21,12 +26,125 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   bool _checkedOnboarding = false;
   Key _cameraKey = UniqueKey();
+  RealtimeChannel? _dmChannel;
+  Timer? _pollTimer;
+  int _lastUnread = -1; // -1 = initial (don't notify on first load)
 
   @override
   void initState() {
     super.initState();
     _checkOnboarding();
-    context.read<AppState>().refreshBadges();
+    _initUnreadAndStartPolling();
+    _subscribeToDMs();
+    PushNotificationService.initialize();
+  }
+
+  @override
+  void dispose() {
+    _dmChannel?.unsubscribe();
+    _pollTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initUnreadAndStartPolling() async {
+    // Get initial unread count without notifying
+    try {
+      final unread = await DMService.getTotalUnreadCount();
+      if (!mounted) return;
+      _lastUnread = unread;
+      context.read<AppState>().setUnreadMessages(unread);
+    } catch (_) {
+      _lastUnread = 0;
+    }
+    // Start polling after initial load
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) => _pollUnread());
+  }
+
+  void _subscribeToDMs() {
+    _dmChannel = DMService.subscribeToAllMessages((Message message) {
+      if (!mounted) return;
+      if (message.senderId == AuthService.userId) return;
+      // Realtime message arrived - show notification immediately
+      _showInAppNotification(message.content);
+      context.read<AppState>().refreshBadges();
+    });
+  }
+
+  Future<void> _pollUnread() async {
+    if (!mounted) return;
+    try {
+      final unread = await DMService.getTotalUnreadCount();
+      if (!mounted) return;
+      if (unread > _lastUnread && _lastUnread >= 0) {
+        _showInAppNotification('新しいメッセージがあります');
+      }
+      _lastUnread = unread;
+      context.read<AppState>().setUnreadMessages(unread);
+    } catch (_) {}
+  }
+
+  void _showInAppNotification(String text) {
+    if (!mounted) return;
+
+    // Play notification sound
+    _playNotificationSound();
+
+    // Show banner at top of screen
+    ScaffoldMessenger.of(context).clearMaterialBanners();
+    ScaffoldMessenger.of(context).showMaterialBanner(
+      MaterialBanner(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        backgroundColor: AppColors.accent,
+        leading: const Icon(Icons.mail, color: Colors.white),
+        content: Text(
+          text,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).clearMaterialBanners();
+              setState(() => _currentIndex = 2); // Switch to inbox tab
+            },
+            child: const Text('開く', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          ),
+          TextButton(
+            onPressed: () => ScaffoldMessenger.of(context).clearMaterialBanners(),
+            child: const Text('閉じる', style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      ),
+    );
+
+    // Auto-dismiss after 5 seconds
+    Future.delayed(const Duration(seconds: 5), () {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearMaterialBanners();
+      }
+    });
+
+    // Also try browser notification (works on desktop, not iOS)
+    _tryBrowserNotification(text);
+  }
+
+  void _playNotificationSound() {
+    try {
+      // Use JavaScript interop for AudioContext beep
+      html.document.body!.appendHtml(
+        '<script>try{var c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);g.gain.value=0.3;o.frequency.value=880;o.start(c.currentTime);o.stop(c.currentTime+0.15);}catch(e){}</script>',
+        treeSanitizer: html.NodeTreeSanitizer.trusted,
+      );
+    } catch (_) {}
+  }
+
+  void _tryBrowserNotification(String body) {
+    try {
+      if (html.Notification.permission == 'granted') {
+        html.Notification('Real-Insta', body: body, icon: 'favicon.png');
+      }
+    } catch (_) {}
   }
 
   Future<void> _checkOnboarding() async {
@@ -65,7 +183,6 @@ class _HomeScreenState extends State<HomeScreen> {
           currentIndex: _currentIndex,
           onTap: (i) {
             if (i == 3 && _currentIndex == 3) {
-              // 「+」タブ再タップ → カメラ画面をリセットするためキーを更新
               setState(() => _cameraKey = UniqueKey());
             } else {
               setState(() => _currentIndex = i);

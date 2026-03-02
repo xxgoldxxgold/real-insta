@@ -4,6 +4,8 @@ const supabaseUrl = 'https://vylwpbbwkmuxrfzmgvkj.supabase.co';
 const supabaseAnonKey =
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5bHdwYmJ3a211eHJmem1ndmtqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkwMzE5MDgsImV4cCI6MjA3NDYwNzkwOH0.oDxf3R0X-PWLp5ZP4ERu9Co7GehAwxYLORY9bF8zeBw';
 
+const vapidPublicKey = 'BGGf5nZk_gEp04f7wqJ4zxFZzGkTj_5n-CPzzCj9GbfHhAw57vRb1XXDQguYPIONAgLBztERbye06JyYPnw-Lgs';
+
 class AppColors {
   static const bg = Color(0xFFFFFFFF);
   static const card = Color(0xFFFFFFFF);
