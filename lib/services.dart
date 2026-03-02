@@ -3,27 +3,15 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:js_interop';
 import 'dart:html' as html;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
-import 'constants.dart' show vapidPublicKey;
 
 final supabase = Supabase.instance.client;
 
 @JS('navigator.userAgent')
 external JSString get _jsUserAgent;
-
-@JS('Notification.permission')
-external JSString? get _notificationPermission;
-
-@JS('Notification.requestPermission')
-external JSPromise<JSString> _requestNotificationPermission();
-
-@JS('window._subscribePush')
-external JSPromise<JSString> _jsSubscribePush(JSString vapidKey);
-
-@JS('window._getPushSubscription')
-external JSPromise<JSString?> _jsGetPushSubscription();
 
 bool get isInAppBrowser {
   if (!kIsWeb) return false;
@@ -638,62 +626,73 @@ class HashtagService {
 
 class PushNotificationService {
   static bool _initialized = false;
+  static StreamSubscription? _tokenRefreshSub;
 
   static Future<void> initialize() async {
-    if (_initialized || !kIsWeb) return;
+    if (_initialized) return;
     _initialized = true;
-    try {
-      // Check if Notification API is available
-      final perm = _notificationPermission?.toDart;
-      if (perm == null) return; // Notification API not supported
+    if (!kIsWeb) return;
 
-      if (perm == 'granted') {
-        await _subscribe();
-      } else if (perm == 'default') {
-        // Request permission
-        final result = (await _requestNotificationPermission().toDart).toDart;
-        if (result == 'granted') {
-          await _subscribe();
-        }
+    try {
+      final messaging = FirebaseMessaging.instance;
+
+      // Request notification permission
+      final settings = await messaging.requestPermission(
+        alert: true, badge: true, sound: true,
+      );
+      if (settings.authorizationStatus != AuthorizationStatus.authorized) {
+        debugPrint('[FCM] Permission not granted');
+        return;
       }
+
+      // Get FCM token
+      final fcmToken = await messaging.getToken();
+      if (fcmToken == null || fcmToken.isEmpty) {
+        debugPrint('[FCM] No token received');
+        return;
+      }
+      debugPrint('[FCM] Token: ${fcmToken.substring(0, 20)}...');
+
+      // Send token to our PHP backend
+      await _registerToken(fcmToken);
+
+      // Listen for token refresh
+      _tokenRefreshSub ??= messaging.onTokenRefresh.listen((newToken) {
+        _registerToken(newToken);
+      });
+
+      // Handle foreground messages
+      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+        debugPrint('[FCM] Foreground message: ${message.data}');
+        final title = message.data['title'] ?? 'Real-Insta';
+        final body = message.data['body'] ?? '';
+        try {
+          if (html.Notification.supported && html.Notification.permission == 'granted') {
+            html.Notification(title, body: body, icon: '/favicon.png');
+          }
+        } catch (_) {}
+      });
     } catch (e) {
-      print('Push init error: $e');
+      debugPrint('[FCM] Init error: $e');
     }
   }
 
-  static Future<void> _subscribe() async {
+  static Future<void> _registerToken(String fcmToken) async {
     try {
-      // Wait a moment for SW registration to complete
-      await Future.delayed(const Duration(seconds: 1));
+      final authToken = supabase.auth.currentSession?.accessToken;
+      if (authToken == null) return;
 
-      // Check existing subscription first
-      String? existingSub;
-      try {
-        existingSub = (await _jsGetPushSubscription().toDart)?.toDart;
-      } catch (_) {}
-
-      String subJson;
-      if (existingSub != null) {
-        subJson = existingSub;
-      } else {
-        subJson = (await _jsSubscribePush(vapidPublicKey.toJS).toDart).toDart;
-      }
-
-      final sub = jsonDecode(subJson) as Map<String, dynamic>;
-      final token = supabase.auth.currentSession?.accessToken;
-      if (token == null) return;
-
-      // Send subscription to server
       final xhr = html.HttpRequest();
       xhr.open('POST', 'https://real-insta.com/api/push-subscribe.php');
       xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.setRequestHeader('Authorization', 'Bearer $token');
+      xhr.setRequestHeader('Authorization', 'Bearer $authToken');
       xhr.send(jsonEncode({
-        'endpoint': sub['endpoint'],
-        'keys': sub['keys'],
+        'token': fcmToken,
+        'platform': 'web',
       }));
+      debugPrint('[FCM] Token registered');
     } catch (e) {
-      print('Push subscribe error: $e');
+      debugPrint('[FCM] Token registration error: $e');
     }
   }
 }
