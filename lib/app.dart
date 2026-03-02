@@ -32,6 +32,7 @@ final _authNotifier = AuthNotifier();
 class AppState extends ChangeNotifier {
   int unreadNotifications = 0;
   int unreadMessages = 0;
+  int? requestedTab;
 
   void setUnreadNotifications(int count) {
     unreadNotifications = count;
@@ -40,6 +41,11 @@ class AppState extends ChangeNotifier {
 
   void setUnreadMessages(int count) {
     unreadMessages = count;
+    notifyListeners();
+  }
+
+  void switchTab(int index) {
+    requestedTab = index;
     notifyListeners();
   }
 

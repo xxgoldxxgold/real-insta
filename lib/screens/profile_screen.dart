@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../app.dart';
 import '../constants.dart';
 import '../models.dart';
 import '../services.dart';
@@ -178,7 +180,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         centerTitle: false,
         actions: [
           if (_isMe) ...[
-            IconButton(icon: const Icon(Icons.add_box_outlined, size: 26), onPressed: () {}),
+            IconButton(icon: const Icon(Icons.add_box_outlined, size: 26), onPressed: () => context.read<AppState>().switchTab(3)),
             IconButton(icon: const Icon(Icons.menu, size: 28), onPressed: () => context.push('/settings')),
           ] else
             IconButton(icon: const Icon(Icons.more_horiz), onPressed: _showMoreMenu),

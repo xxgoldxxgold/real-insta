@@ -40,6 +40,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
+    if (appState.requestedTab != null) {
+      _currentIndex = appState.requestedTab!;
+      appState.requestedTab = null;
+    }
     final uid = AuthService.userId!;
 
     final screens = [
