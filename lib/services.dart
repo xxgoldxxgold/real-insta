@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:js_interop';
+import 'dart:html' as html;
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'models.dart';
 
@@ -215,13 +215,14 @@ class PostService {
     try {
       final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
       final b64 = 'data:$mimeType;base64,${base64Encode(imageBytes)}';
-      final resp = await http.post(
-        Uri.parse('https://real-insta.com/api/check-image.php'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'image': b64}),
-      ).timeout(const Duration(seconds: 30));
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body);
+      final req = await html.HttpRequest.request(
+        'https://real-insta.com/api/check-image.php',
+        method: 'POST',
+        sendData: jsonEncode({'image': b64}),
+        requestHeaders: {'Content-Type': 'application/json'},
+      );
+      if (req.status == 200) {
+        final data = jsonDecode(req.responseText ?? '');
         if (data['allowed'] == false) {
           blocked = true;
           reason = data['reason'] ?? '';
