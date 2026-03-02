@@ -210,6 +210,8 @@ class PostService {
   }
 
   static Future<void> _checkImageWithAI(Uint8List imageBytes, String ext) async {
+    bool blocked = false;
+    String reason = '';
     try {
       final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
       final b64 = 'data:$mimeType;base64,${base64Encode(imageBytes)}';
@@ -221,13 +223,15 @@ class PostService {
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body);
         if (data['allowed'] == false) {
-          throw Exception(data['reason'] ?? 'AI加工された画像は投稿できません');
+          blocked = true;
+          reason = data['reason'] ?? '';
         }
       }
-      // Non-200 or parse error -> fail open (allow posting)
-    } catch (e) {
-      if (e is Exception && e.toString().contains('AI加工')) rethrow;
-      // Network error etc -> fail open
+    } catch (_) {
+      // Network/parse error -> fail open (allow posting)
+    }
+    if (blocked) {
+      throw Exception('AI加工された画像は投稿できません。$reason');
     }
   }
 
