@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:js_interop';
@@ -209,12 +210,34 @@ class PostService {
     return Post.fromJson(data);
   }
 
+  static Future<String> _resizeForCheck(Uint8List imageBytes) async {
+    final blob = html.Blob([imageBytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final img = html.ImageElement();
+    final completer = Completer<void>();
+    img.onLoad.listen((_) => completer.complete());
+    img.onError.listen((_) => completer.complete());
+    img.src = url;
+    await completer.future;
+    html.Url.revokeObjectUrl(url);
+    final w = img.naturalWidth;
+    final h = img.naturalHeight;
+    if (w == 0 || h == 0) return '';
+    const maxSize = 512;
+    final scale = (w > h ? maxSize / w : maxSize / h).clamp(0.0, 1.0);
+    final nw = (w * scale).round();
+    final nh = (h * scale).round();
+    final canvas = html.CanvasElement(width: nw, height: nh);
+    canvas.context2D.drawImageScaled(img, 0, 0, nw, nh);
+    return canvas.toDataUrl('image/jpeg', 0.7);
+  }
+
   static Future<void> _checkImageWithAI(Uint8List imageBytes, String ext) async {
     bool blocked = false;
     String reason = '';
     try {
-      final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';
-      final b64 = 'data:$mimeType;base64,${base64Encode(imageBytes)}';
+      final b64 = await _resizeForCheck(imageBytes);
+      if (b64.isEmpty) return; // resize failed -> allow
       final req = await html.HttpRequest.request(
         'https://real-insta.com/api/check-image.php',
         method: 'POST',
