@@ -284,12 +284,13 @@ if ($result && isset($result['recommendation'])) {
     $flags = $result['flags'] ?? [];
 
     // Server-side enforcement: don't trust GPT's recommendation alone
-    // GPT sometimes returns "review" even for manipulation_score > 70
+    // GPT often returns manip=48 for clearly filtered photos — use aggressive thresholds
     $blocked = ($recommendation === 'reject')
-            || ($manipScore >= 50)       // Our threshold: 50+ manipulation → block
-            || ($aiScore >= 50)          // 50+ AI generation → block
+            || ($manipScore >= 40)       // 40+ manipulation → block
+            || ($aiScore >= 40)          // 40+ AI generation → block
             || ($verdict === 'manipulated')
-            || ($verdict === 'ai_generated');
+            || ($verdict === 'ai_generated')
+            || ($verdict === 'suspicious' && $manipScore >= 35);
 
     $output = [
         'allowed' => !$blocked,

@@ -265,6 +265,9 @@ class PostService {
     if (data['allowed'] == false) {
       throw Exception('AI加工された画像は投稿できません。${data['reason'] ?? ''}');
     }
+
+    // Delay to let XHR connection fully close before Supabase upload
+    await Future.delayed(const Duration(milliseconds: 500));
   }
 
   static Future<void> deletePost(String postId) async {
