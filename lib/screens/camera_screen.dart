@@ -27,6 +27,7 @@ class _CameraScreenState extends State<CameraScreen> {
   final _transformController = TransformationController();
   bool _posting = false;
   bool _pickerOpened = false;
+  bool _fromCamera = false;
 
   // Aspect ratio state
   double _aspectRatio = 1.0; // width / height
@@ -69,6 +70,7 @@ class _CameraScreenState extends State<CameraScreen> {
     setState(() {
       _imageBytes = bytes;
       _imageExt = ext == 'png' ? 'png' : 'jpg';
+      _fromCamera = false;
       _aspectRatio = 1.0;
       _isOriginalRatio = false;
       _transformController.value = Matrix4.identity();
@@ -179,6 +181,7 @@ class _CameraScreenState extends State<CameraScreen> {
       setState(() {
         _imageBytes = Uint8List.fromList(bytes);
         _imageExt = 'jpg';
+        _fromCamera = true;
         _cameraActive = false;
         _aspectRatio = 1.0;
         _isOriginalRatio = false;
@@ -273,6 +276,7 @@ class _CameraScreenState extends State<CameraScreen> {
         ext: 'jpg',
         caption: _captionController.text.isNotEmpty ? _captionController.text : null,
         locationName: _locationController.text.isNotEmpty ? _locationController.text : null,
+        fromCamera: _fromCamera,
       );
       if (mounted) {
         context.read<AppState>().requestFeedRefresh();

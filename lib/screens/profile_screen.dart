@@ -21,6 +21,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   late TabController _tabController;
   Profile? _profile;
   List<Post> _posts = [];
+  List<Post> _cameraPosts = [];
   bool _loading = true;
 
   bool get _isMe => widget.userId == AuthService.userId;
@@ -29,6 +30,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) setState(() {});
+    });
     _load();
   }
 
@@ -50,11 +54,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       final results = await Future.wait([
         ProfileService.getProfile(widget.userId),
         PostService.getUserPosts(widget.userId),
+        PostService.getUserCameraPosts(widget.userId),
       ]);
       if (mounted) {
         setState(() {
           _profile = results[0] as Profile?;
           _posts = results[1] as List<Post>;
+          _cameraPosts = results[2] as List<Post>;
           _loading = false;
         });
       }
@@ -163,6 +169,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
+    if (_isMe && appState.feedNeedsRefresh) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    }
+
     if (_loading) return const Scaffold(body: Center(child: CircularProgressIndicator()));
     if (_profile == null) return const Scaffold(body: Center(child: Text('ユーザーが見つかりません')));
 
@@ -207,36 +218,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   dividerColor: Colors.transparent,
                   tabs: const [
                     Tab(icon: Icon(Icons.grid_on, size: 26)),
-                    Tab(icon: Icon(Icons.person_pin_outlined, size: 26)),
+                    Tab(icon: Icon(Icons.camera_alt_outlined, size: 26)),
                   ],
                 ),
               ),
             ),
-            SliverPadding(
-              padding: EdgeInsets.zero,
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
-                  crossAxisSpacing: 2,
-                  mainAxisSpacing: 2,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final post = _posts[index];
-                    return GestureDetector(
-                      onTap: () => context.push('/post/${post.id}'),
-                      child: CachedNetworkImage(
-                        imageUrl: post.imageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(color: AppColors.buttonGrey),
-                        errorWidget: (_, __, ___) => Container(color: AppColors.buttonGrey),
-                      ),
-                    );
-                  },
-                  childCount: _posts.length,
-                ),
-              ),
-            ),
+            _buildPostGrid(_tabController.index == 0 ? _posts : _cameraPosts),
           ],
         ),
       ),
@@ -376,6 +363,63 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         const SizedBox(height: 2),
         Text(label, style: const TextStyle(fontSize: 13)),
       ],
+    );
+  }
+
+  Widget _buildPostGrid(List<Post> posts) {
+    if (posts.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 60),
+          child: Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 64, height: 64,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.textSecondary, width: 1.5),
+                  ),
+                  child: Icon(
+                    _tabController.index == 0 ? Icons.camera_alt_outlined : Icons.camera_outlined,
+                    size: 32, color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _tabController.index == 0 ? 'まだ投稿がありません' : 'カメラで撮影した写真がありません',
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return SliverPadding(
+      padding: EdgeInsets.zero,
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          crossAxisSpacing: 2,
+          mainAxisSpacing: 2,
+        ),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final post = posts[index];
+            return GestureDetector(
+              onTap: () => context.push('/post/${post.id}'),
+              child: CachedNetworkImage(
+                imageUrl: post.imageUrl,
+                fit: BoxFit.cover,
+                placeholder: (_, __) => Container(color: AppColors.buttonGrey),
+                errorWidget: (_, __, ___) => Container(color: AppColors.buttonGrey),
+              ),
+            );
+          },
+          childCount: posts.length,
+        ),
+      ),
     );
   }
 }

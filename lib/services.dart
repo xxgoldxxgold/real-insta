@@ -155,6 +155,17 @@ class PostService {
     return _enrichPosts(data as List, AuthService.userId);
   }
 
+  static Future<List<Post>> getUserCameraPosts(String userId, {int offset = 0, int limit = 30}) async {
+    final data = await supabase
+        .from('ri_posts')
+        .select('*, ri_profiles!inner(*)')
+        .eq('user_id', userId)
+        .like('image_url', '%/cam_%')
+        .order('created_at', ascending: false)
+        .range(offset, offset + limit - 1);
+    return _enrichPosts(data as List, AuthService.userId);
+  }
+
   static Future<List<Post>> getExplorePosts({int offset = 0, int limit = 30}) async {
     final data = await supabase
         .from('ri_posts')
@@ -191,12 +202,13 @@ class PostService {
     return posts;
   }
 
-  static Future<Post> createPost({required Uint8List imageBytes, required String ext, String? caption, String? locationName}) async {
+  static Future<Post> createPost({required Uint8List imageBytes, required String ext, String? caption, String? locationName, bool fromCamera = false}) async {
     // AI image check
     await _checkImageWithAI(imageBytes, ext);
 
     final uid = AuthService.userId!;
-    final path = '$uid/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final prefix = fromCamera ? 'cam_' : '';
+    final path = '$uid/$prefix${DateTime.now().millisecondsSinceEpoch}.$ext';
     await supabase.storage.from('ri-posts').uploadBinary(path, imageBytes, fileOptions: const FileOptions(upsert: true));
     final imageUrl = supabase.storage.from('ri-posts').getPublicUrl(path);
 
