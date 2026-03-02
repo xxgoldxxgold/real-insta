@@ -223,39 +223,47 @@ class PostService {
     final w = img.naturalWidth;
     final h = img.naturalHeight;
     if (w == 0 || h == 0) return '';
-    const maxSize = 512;
+    const maxSize = 1024;
     final scale = (w > h ? maxSize / w : maxSize / h).clamp(0.0, 1.0);
     final nw = (w * scale).round();
     final nh = (h * scale).round();
     final canvas = html.CanvasElement(width: nw, height: nh);
     canvas.context2D.drawImageScaled(img, 0, 0, nw, nh);
-    return canvas.toDataUrl('image/jpeg', 0.7);
+    return canvas.toDataUrl('image/jpeg', 0.8);
   }
 
   static Future<void> _checkImageWithAI(Uint8List imageBytes, String ext) async {
-    bool blocked = false;
-    String reason = '';
+    final b64 = await _resizeForCheck(imageBytes);
+    if (b64.isEmpty) return; // resize failed -> allow
+
+    // Step 1: Send request (network errors -> allow posting)
+    String responseBody = '';
     try {
-      final b64 = await _resizeForCheck(imageBytes);
-      if (b64.isEmpty) return; // resize failed -> allow
-      final req = await html.HttpRequest.request(
+      final xhr = await html.HttpRequest.request(
         'https://real-insta.com/api/check-image.php',
         method: 'POST',
-        sendData: jsonEncode({'image': b64}),
         requestHeaders: {'Content-Type': 'application/json'},
+        sendData: jsonEncode({'image': b64}),
       );
-      if (req.status == 200) {
-        final data = jsonDecode(req.responseText ?? '');
-        if (data['allowed'] == false) {
-          blocked = true;
-          reason = data['reason'] ?? '';
-        }
-      }
+      responseBody = xhr.responseText ?? '';
     } catch (_) {
-      // Network/parse error -> fail open (allow posting)
+      return; // Network error -> fail open
     }
-    if (blocked) {
-      throw Exception('AI加工された画像は投稿できません。$reason');
+
+    if (responseBody.isEmpty) return;
+
+    // Step 2: Parse response (parse errors -> allow posting)
+    Map<String, dynamic> data;
+    try {
+      data = jsonDecode(responseBody) as Map<String, dynamic>;
+    } catch (_) {
+      return; // JSON parse error -> fail open
+    }
+
+    // Step 3: Block if server says not allowed
+    // This throw is OUTSIDE any try-catch — guaranteed to propagate
+    if (data['allowed'] == false) {
+      throw Exception('AI加工された画像は投稿できません。${data['reason'] ?? ''}');
     }
   }
 
