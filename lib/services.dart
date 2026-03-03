@@ -25,6 +25,35 @@ bool get isInAppBrowser {
   }
 }
 
+/// Fire-and-forget push notification for likes, comments, follows
+void _sendActivityPush({
+  required String type,
+  required String receiverId,
+  String? postId,
+  String? commentText,
+}) {
+  try {
+    final token = supabase.auth.currentSession?.accessToken;
+    if (token == null) return;
+    final profile = supabase.auth.currentUser?.userMetadata;
+    final actorName = profile?['display_name']?.toString() ??
+        profile?['full_name']?.toString() ??
+        profile?['name']?.toString() ??
+        'Someone';
+    final xhr = html.HttpRequest();
+    xhr.open('POST', 'https://real-insta.com/api/notify-activity.php');
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.setRequestHeader('Authorization', 'Bearer $token');
+    xhr.send(jsonEncode({
+      'type': type,
+      'receiver_id': receiverId,
+      'actor_name': actorName,
+      'post_id': postId ?? '',
+      'comment_text': commentText ?? '',
+    }));
+  } catch (_) {}
+}
+
 class AuthService {
   static User? get currentUser => supabase.auth.currentUser;
   static String? get userId => currentUser?.id;
@@ -289,7 +318,7 @@ class PostService {
     await supabase.from('ri_posts').delete().eq('id', postId);
   }
 
-  static Future<bool> toggleLike(String postId) async {
+  static Future<bool> toggleLike(String postId, {String? postOwnerId}) async {
     final uid = AuthService.userId!;
     final existing = await supabase.from('ri_likes').select('id').eq('post_id', postId).eq('user_id', uid).maybeSingle();
     if (existing != null) {
@@ -297,6 +326,10 @@ class PostService {
       return false;
     } else {
       await supabase.from('ri_likes').insert({'user_id': uid, 'post_id': postId});
+      // Push notification
+      if (postOwnerId != null && postOwnerId != uid && kIsWeb) {
+        _sendActivityPush(type: 'like', receiverId: postOwnerId, postId: postId);
+      }
       return true;
     }
   }
@@ -331,12 +364,17 @@ class CommentService {
     return (data as List).map((e) => Comment.fromJson(e)).toList();
   }
 
-  static Future<Comment> addComment(String postId, String content) async {
+  static Future<Comment> addComment(String postId, String content, {String? postOwnerId}) async {
+    final uid = AuthService.userId!;
     final data = await supabase.from('ri_comments').insert({
-      'user_id': AuthService.userId!,
+      'user_id': uid,
       'post_id': postId,
       'content': content,
     }).select('*, ri_profiles!inner(*)').single();
+    // Push notification
+    if (postOwnerId != null && postOwnerId != uid && kIsWeb) {
+      _sendActivityPush(type: 'comment', receiverId: postOwnerId, postId: postId, commentText: content);
+    }
     return Comment.fromJson(data);
   }
 

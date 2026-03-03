@@ -56,7 +56,7 @@ class _PostCardState extends State<PostCard> {
       _likesCount += _liked ? 1 : -1;
     });
     try {
-      final result = await PostService.toggleLike(widget.post.id);
+      final result = await PostService.toggleLike(widget.post.id, postOwnerId: widget.post.userId);
       if (result != _liked) {
         setState(() {
           _liked = result;

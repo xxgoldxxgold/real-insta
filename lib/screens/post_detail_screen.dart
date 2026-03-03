@@ -57,7 +57,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     if (text.isEmpty) return;
     setState(() => _sending = true);
     try {
-      final comment = await CommentService.addComment(widget.postId, text);
+      final comment = await CommentService.addComment(widget.postId, text, postOwnerId: _post?.userId);
       if (mounted) {
         setState(() {
           _comments.add(comment);
