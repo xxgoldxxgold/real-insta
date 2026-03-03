@@ -627,8 +627,20 @@ class HashtagService {
 }
 
 class PushNotificationService {
+  static const _vapidPublicKey =
+      'BGGf5nZk_gEp04f7wqJ4zxFZzGkTj_5n-CPzzCj9GbfHhAw57vRb1XXDQguYPIONAgLBztERbye06JyYPnw-Lgs';
+
+  static bool _firebaseReady = false;
   static bool _subscribed = false;
+  static bool _onMessageRegistered = false;
   static StreamSubscription? _tokenRefreshSub;
+
+  static Future<void> _ensureFirebase() async {
+    if (_firebaseReady) return;
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    _firebaseReady = true;
+    debugPrint('[FCM] Firebase initialized');
+  }
 
   /// Call from initState — if permission already granted, subscribe silently
   static Future<void> initialize() async {
@@ -675,14 +687,12 @@ class PushNotificationService {
     if (_subscribed) return;
     _subscribed = true;
     try {
-      // Firebase init
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-      debugPrint('[FCM] Firebase initialized');
+      await _ensureFirebase();
 
       final messaging = FirebaseMessaging.instance;
 
-      // Get FCM token
-      final token = await messaging.getToken();
+      // Get FCM token — vapidKey is REQUIRED for web push to work
+      final token = await messaging.getToken(vapidKey: _vapidPublicKey);
       debugPrint('[FCM] getToken result: ${token == null ? "null" : "${token.substring(0, 20)}..."}');
       if (token == null || token.isEmpty) {
         debugPrint('[FCM] No token received');
@@ -699,17 +709,29 @@ class PushNotificationService {
         _registerToken(newToken);
       });
 
-      // Handle foreground messages — show browser notification
-      FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-        debugPrint('[FCM] Foreground message: ${message.data}');
-        final title = message.data['title'] ?? 'Real-Insta';
-        final body = message.data['body'] ?? '';
-        try {
-          if (html.Notification.supported && html.Notification.permission == 'granted') {
-            html.Notification(title, body: body, icon: '/favicon.png');
-          }
-        } catch (_) {}
-      });
+      // Handle foreground messages — show browser notification manually
+      // (data-only messages don't auto-display in foreground)
+      if (!_onMessageRegistered) {
+        _onMessageRegistered = true;
+        FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+          debugPrint('[FCM] Foreground message: ${message.data}');
+          if (!html.Notification.supported) return;
+          final title = message.data['title'] ?? 'Real-Insta';
+          final body = message.data['body'] ?? '';
+          try {
+            final n = html.Notification(title, body: body, icon: '/favicon.png');
+            n.onClick.listen((_) {
+              try {
+                html.document.documentElement?.focus();
+                final url = message.data['url']?.toString();
+                if (url != null && url.isNotEmpty) {
+                  html.window.location.hash = url;
+                }
+              } catch (_) {}
+            });
+          } catch (_) {}
+        });
+      }
       debugPrint('[FCM] Subscribe complete');
     } catch (e, st) {
       debugPrint('[FCM] Subscribe error: $e\n$st');
