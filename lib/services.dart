@@ -397,6 +397,9 @@ class FollowService {
       return false;
     } else {
       await supabase.from('ri_follows').insert({'follower_id': uid, 'following_id': targetUserId});
+      if (kIsWeb) {
+        _sendActivityPush(type: 'follow', receiverId: targetUserId);
+      }
       return true;
     }
   }
