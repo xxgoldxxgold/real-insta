@@ -347,21 +347,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
-                SizedBox(
-                  width: 34,
-                  height: 34,
-                  child: ElevatedButton(
-                    onPressed: () {},
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.buttonGrey,
-                      elevation: 0,
-                      padding: EdgeInsets.zero,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                    child: const Icon(Icons.person_add_outlined, size: 16, color: AppColors.text),
-                  ),
-                ),
               ],
             ),
         ],

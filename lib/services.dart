@@ -86,6 +86,28 @@ class AuthService {
     await supabase.auth.signOut();
   }
 
+  static Future<void> deleteAccount() async {
+    final uid = userId;
+    if (uid == null) return;
+    // Delete user data in order (respecting foreign keys)
+    await supabase.from('ri_notifications').delete().eq('user_id', uid);
+    await supabase.from('ri_notifications').delete().eq('actor_id', uid);
+    await supabase.from('ri_likes').delete().eq('user_id', uid);
+    await supabase.from('ri_comments').delete().eq('user_id', uid);
+    await supabase.from('ri_post_hashtags').delete().inFilter(
+      'post_id',
+      (await supabase.from('ri_posts').select('id').eq('user_id', uid) as List)
+          .map((r) => r['id'] as String).toList(),
+    );
+    await supabase.from('ri_posts').delete().eq('user_id', uid);
+    await supabase.from('ri_follows').delete().eq('follower_id', uid);
+    await supabase.from('ri_follows').delete().eq('following_id', uid);
+    await supabase.from('ri_messages').delete().eq('sender_id', uid);
+    await supabase.from('ri_conversations').delete().or('user1_id.eq.$uid,user2_id.eq.$uid');
+    await supabase.from('ri_profiles').delete().eq('id', uid);
+    await signOut();
+  }
+
   static String get _redirectUrl {
     return 'https://real-insta.com/';
   }
@@ -215,23 +237,49 @@ class PostService {
   }
 
   static Future<List<Post>> _enrichPosts(List data, String? currentUserId) async {
-    final posts = <Post>[];
-    for (final json in data) {
-      final postId = json['id'] as String;
-      final likesResult = await supabase.from('ri_likes').select('id').eq('post_id', postId).count(CountOption.exact);
-      final commentsResult = await supabase.from('ri_comments').select('id').eq('post_id', postId).count(CountOption.exact);
-      Map<String, dynamic>? likeCheck;
-      if (currentUserId != null) {
-        likeCheck = await supabase.from('ri_likes').select('id').eq('post_id', postId).eq('user_id', currentUserId).maybeSingle();
-      }
-      posts.add(Post.fromJson(
-        json,
-        likes: likesResult.count,
-        comments: commentsResult.count,
-        liked: likeCheck != null,
-      ));
+    if (data.isEmpty) return [];
+
+    final postIds = data.map((j) => j['id'] as String).toList();
+
+    // Batch: get all likes counts, comments counts, and user's likes in parallel
+    final results = await Future.wait([
+      supabase.from('ri_likes').select('post_id').inFilter('post_id', postIds),
+      supabase.from('ri_comments').select('post_id').inFilter('post_id', postIds),
+      if (currentUserId != null)
+        supabase.from('ri_likes').select('post_id').inFilter('post_id', postIds).eq('user_id', currentUserId)
+      else
+        Future.value(<Map<String, dynamic>>[]),
+    ]);
+
+    // Count likes per post
+    final likesMap = <String, int>{};
+    for (final row in (results[0] as List)) {
+      final pid = row['post_id'] as String;
+      likesMap[pid] = (likesMap[pid] ?? 0) + 1;
     }
-    return posts;
+
+    // Count comments per post
+    final commentsMap = <String, int>{};
+    for (final row in (results[1] as List)) {
+      final pid = row['post_id'] as String;
+      commentsMap[pid] = (commentsMap[pid] ?? 0) + 1;
+    }
+
+    // User's liked posts
+    final likedSet = <String>{};
+    for (final row in (results[2] as List)) {
+      likedSet.add(row['post_id'] as String);
+    }
+
+    return data.map((json) {
+      final postId = json['id'] as String;
+      return Post.fromJson(
+        json,
+        likes: likesMap[postId] ?? 0,
+        comments: commentsMap[postId] ?? 0,
+        liked: likedSet.contains(postId),
+      );
+    }).toList();
   }
 
   static Future<Post> createPost({required Uint8List imageBytes, required String ext, String? caption, String? locationName, bool fromCamera = false}) async {
@@ -507,23 +555,41 @@ class DMService {
         .or('user1_id.eq.$uid,user2_id.eq.$uid')
         .order('last_message_at', ascending: false);
 
-    final conversations = <Conversation>[];
-    for (final json in (data as List)) {
-      final conv = Conversation.fromJson(json);
-      final otherId = conv.user1Id == uid ? conv.user2Id : conv.user1Id;
-      conv.otherUser = await ProfileService.getProfile(otherId);
+    final convList = (data as List).map((j) => Conversation.fromJson(j)).toList();
+    if (convList.isEmpty) return convList;
 
-      final unread = await supabase
-          .from('ri_messages')
-          .select('id')
-          .eq('conversation_id', conv.id)
-          .neq('sender_id', uid)
-          .eq('is_read', false)
-          .count(CountOption.exact);
-      conv.unreadCount = unread.count;
-      conversations.add(conv);
+    // Batch: get all other user profiles at once
+    final otherIds = convList.map((c) => c.user1Id == uid ? c.user2Id : c.user1Id).toSet().toList();
+    final profilesData = await supabase
+        .from('ri_profiles')
+        .select()
+        .inFilter('id', otherIds);
+    final profilesMap = <String, Profile>{};
+    for (final p in (profilesData as List)) {
+      final profile = Profile.fromJson(p);
+      profilesMap[profile.id] = profile;
     }
-    return conversations;
+
+    // Batch: get unread counts per conversation
+    final convIds = convList.map((c) => c.id).toList();
+    final unreadData = await supabase
+        .from('ri_messages')
+        .select('conversation_id')
+        .inFilter('conversation_id', convIds)
+        .neq('sender_id', uid)
+        .eq('is_read', false);
+    final unreadMap = <String, int>{};
+    for (final row in (unreadData as List)) {
+      final cid = row['conversation_id'] as String;
+      unreadMap[cid] = (unreadMap[cid] ?? 0) + 1;
+    }
+
+    for (final conv in convList) {
+      final otherId = conv.user1Id == uid ? conv.user2Id : conv.user1Id;
+      conv.otherUser = profilesMap[otherId];
+      conv.unreadCount = unreadMap[conv.id] ?? 0;
+    }
+    return convList;
   }
 
   static Future<Conversation> getOrCreateConversation(String otherUserId) async {

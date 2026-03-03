@@ -37,12 +37,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _loadProfile() async {
     final profile = await ProfileService.getProfile(AuthService.userId!);
-    if (profile != null && mounted) {
+    if (mounted) {
       setState(() {
-        _usernameController.text = profile.username ?? '';
-        _displayNameController.text = profile.displayName ?? '';
-        _bioController.text = profile.bio ?? '';
-        _avatarUrl = profile.avatarUrl;
+        if (profile != null) {
+          _usernameController.text = profile.username ?? '';
+          _displayNameController.text = profile.displayName ?? '';
+          _bioController.text = profile.bio ?? '';
+          _avatarUrl = profile.avatarUrl;
+        }
         _loading = false;
       });
     }

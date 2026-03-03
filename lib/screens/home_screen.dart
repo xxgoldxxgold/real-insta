@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:js_interop';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -14,6 +15,13 @@ import 'explore_screen.dart';
 import 'inbox_screen.dart';
 import 'camera_screen.dart';
 import 'profile_screen.dart';
+
+@JS('eval')
+external JSAny _jsEval(JSString code);
+
+void _jsPlayBeep() {
+  _jsEval('try{var c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);g.gain.value=0.3;o.frequency.value=880;o.start(c.currentTime);o.stop(c.currentTime+0.15);}catch(e){}'.toJS);
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -163,11 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _playNotificationSound() {
     try {
-      // Use JavaScript interop for AudioContext beep
-      html.document.body!.appendHtml(
-        '<script>try{var c=new AudioContext(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);g.gain.value=0.3;o.frequency.value=880;o.start(c.currentTime);o.stop(c.currentTime+0.15);}catch(e){}</script>',
-        treeSanitizer: html.NodeTreeSanitizer.trusted,
-      );
+      _jsPlayBeep();
     } catch (_) {}
   }
 

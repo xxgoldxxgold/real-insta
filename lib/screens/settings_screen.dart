@@ -57,7 +57,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('アカウント削除'),
-        content: const Text('この操作は取り消せません。本当に削除しますか？'),
+        content: const Text('この操作は取り消せません。投稿、コメント、いいね、フォロー、DMなど全てのデータが削除されます。本当に削除しますか？'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('キャンセル')),
           TextButton(
@@ -68,7 +68,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
     if (confirm == true) {
-      await AuthService.signOut();
+      try {
+        await AuthService.deleteAccount();
+      } catch (_) {
+        await AuthService.signOut();
+      }
       if (mounted) context.go('/login');
     }
   }

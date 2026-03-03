@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:go_router/go_router.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -22,7 +23,6 @@ class _PostCardState extends State<PostCard> {
   late bool _liked;
   late int _likesCount;
   bool _showHeart = false;
-  bool _bookmarked = false;
   bool _dmLoading = false;
   double _imageRatio = 1.0;
 
@@ -202,10 +202,6 @@ class _PostCardState extends State<PostCard> {
                   onTap: _dmLoading ? () {} : () => _openDM(post.userId),
                 ),
                 const Spacer(),
-                _actionButton(
-                  icon: _bookmarked ? Icons.bookmark : Icons.bookmark_border,
-                  onTap: () => setState(() => _bookmarked = !_bookmarked),
-                ),
               ],
             ),
           ),
@@ -288,12 +284,20 @@ class _PostCardState extends State<PostCard> {
               ListTile(
                 leading: const Icon(Icons.link),
                 title: const Text('リンクをコピー'),
-                onTap: () => Navigator.pop(ctx),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Clipboard.setData(ClipboardData(text: 'https://real-insta.com/#/post/${post.id}'));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('リンクをコピーしました')));
+                },
               ),
               ListTile(
                 leading: const Icon(Icons.share_outlined),
                 title: const Text('シェア'),
-                onTap: () => Navigator.pop(ctx),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Clipboard.setData(ClipboardData(text: 'https://real-insta.com/#/post/${post.id}'));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('リンクをコピーしました')));
+                },
               ),
             ],
             const SizedBox(height: 8),

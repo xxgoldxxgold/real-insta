@@ -151,16 +151,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                     ),
                     child: Row(
                       children: [
-                        const SizedBox(width: 4),
-                        Container(
-                          width: 34, height: 34,
-                          decoration: const BoxDecoration(
-                            color: AppColors.accent,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.camera_alt, color: Colors.white, size: 18),
-                        ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: TextField(
                             controller: _messageController,
@@ -185,11 +176,8 @@ class _ThreadScreenState extends State<ThreadScreen> {
                               ),
                             ),
                           )
-                        else ...[
-                          IconButton(icon: const Icon(Icons.mic_none, size: 24), onPressed: () {}, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
-                          IconButton(icon: const Icon(Icons.image_outlined, size: 24), onPressed: () {}, padding: EdgeInsets.zero, constraints: const BoxConstraints(minWidth: 36)),
-                          const SizedBox(width: 4),
-                        ],
+                        else
+                          const SizedBox(width: 12),
                       ],
                     ),
                   ),
