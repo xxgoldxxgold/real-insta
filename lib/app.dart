@@ -14,6 +14,7 @@ import 'screens/settings_screen.dart';
 import 'screens/hashtag_screen.dart';
 import 'screens/inbox_screen.dart';
 import 'screens/thread_screen.dart';
+import 'screens/notifications_screen.dart';
 
 class AuthNotifier extends ChangeNotifier {
   AuthNotifier() {
@@ -124,5 +125,6 @@ final _router = GoRouter(
     GoRoute(path: '/hashtag/:tag', builder: (_, state) => HashtagScreen(tag: state.pathParameters['tag']!)),
     GoRoute(path: '/inbox', builder: (_, __) => const InboxScreen()),
     GoRoute(path: '/thread/:conversationId', builder: (_, state) => ThreadScreen(conversationId: state.pathParameters['conversationId']!)),
+    GoRoute(path: '/notifications', builder: (_, __) => const NotificationsScreen()),
   ],
 );

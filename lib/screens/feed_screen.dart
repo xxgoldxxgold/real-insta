@@ -92,7 +92,7 @@ class _FeedScreenState extends State<FeedScreen> {
             children: [
               IconButton(
                 icon: const Icon(Icons.favorite_border, size: 28),
-                onPressed: () {},
+                onPressed: () => context.push('/notifications'),
               ),
               if (appState.unreadNotifications > 0)
                 Positioned(
