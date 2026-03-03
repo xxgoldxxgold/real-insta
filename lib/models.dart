@@ -180,11 +180,11 @@ class Message {
   });
 
   factory Message.fromJson(Map<String, dynamic> json) => Message(
-        id: json['id'],
-        conversationId: json['conversation_id'],
-        senderId: json['sender_id'],
-        content: json['content'],
-        isRead: json['is_read'] ?? false,
-        createdAt: DateTime.parse(json['created_at']),
+        id: json['id']?.toString() ?? '',
+        conversationId: json['conversation_id']?.toString() ?? '',
+        senderId: json['sender_id']?.toString() ?? '',
+        content: json['content']?.toString() ?? '',
+        isRead: json['is_read'] == true || json['is_read'] == 'true',
+        createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
       );
 }

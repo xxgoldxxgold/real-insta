@@ -70,7 +70,7 @@ class _CameraScreenState extends State<CameraScreen> {
     setState(() {
       _imageBytes = bytes;
       _imageExt = ext == 'png' ? 'png' : 'jpg';
-      _fromCamera = false;
+      _fromCamera = source == ImageSource.camera;
       _aspectRatio = 1.0;
       _isOriginalRatio = false;
       _transformController.value = Matrix4.identity();

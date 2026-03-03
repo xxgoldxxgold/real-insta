@@ -23,6 +23,7 @@ class _PostCardState extends State<PostCard> {
   late int _likesCount;
   bool _showHeart = false;
   bool _bookmarked = false;
+  bool _dmLoading = false;
   double _imageRatio = 1.0;
 
   @override
@@ -68,6 +69,22 @@ class _PostCardState extends State<PostCard> {
         _liked = !_liked;
         _likesCount += _liked ? 1 : -1;
       });
+    }
+  }
+
+  Future<void> _openDM(String userId) async {
+    if (userId == AuthService.userId) return;
+    if (_dmLoading) return;
+    setState(() => _dmLoading = true);
+    try {
+      final conv = await DMService.getOrCreateConversation(userId);
+      if (mounted) context.push('/thread/${conv.id}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('DMエラー: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _dmLoading = false);
     }
   }
 
@@ -182,7 +199,7 @@ class _PostCardState extends State<PostCard> {
                 const SizedBox(width: 16),
                 _actionButton(
                   icon: Icons.send_outlined,
-                  onTap: () {},
+                  onTap: _dmLoading ? () {} : () => _openDM(post.userId),
                 ),
                 const Spacer(),
                 _actionButton(

@@ -23,6 +23,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   List<Post> _posts = [];
   List<Post> _cameraPosts = [];
   bool _loading = true;
+  int _selectedTab = 0;
+  bool _dmLoading = false;
 
   bool get _isMe => widget.userId == AuthService.userId;
 
@@ -31,7 +33,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _tabController.addListener(() {
-      if (!_tabController.indexIsChanging) setState(() {});
+      if (_tabController.index != _selectedTab) {
+        setState(() => _selectedTab = _tabController.index);
+      }
     });
     _load();
   }
@@ -88,6 +92,21 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     }
   }
 
+  Future<void> _openDM() async {
+    if (_dmLoading) return;
+    setState(() => _dmLoading = true);
+    try {
+      final conv = await DMService.getOrCreateConversation(widget.userId);
+      if (mounted) context.push('/thread/${conv.id}');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('DMエラー: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _dmLoading = false);
+    }
+  }
+
   void _showMoreMenu() {
     showModalBottomSheet(
       context: context,
@@ -107,10 +126,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               ListTile(
                 leading: const Icon(Icons.message_outlined),
                 title: const Text('メッセージ'),
-                onTap: () async {
+                onTap: () {
                   Navigator.pop(ctx);
-                  final conv = await DMService.getOrCreateConversation(widget.userId);
-                  if (mounted) context.push('/thread/${conv.id}');
+                  _openDM();
                 },
               ),
               ListTile(
@@ -223,7 +241,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 ),
               ),
             ),
-            _buildPostGrid(_tabController.index == 0 ? _posts : _cameraPosts),
+            _buildPostGrid(_selectedTab == 0 ? _posts : _cameraPosts),
           ],
         ),
       ),
@@ -312,10 +330,22 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 const SizedBox(width: 6),
                 Expanded(
                   flex: 2,
-                  child: _greyButton('メッセージ', () async {
-                    final conv = await DMService.getOrCreateConversation(widget.userId);
-                    if (mounted) context.push('/thread/${conv.id}');
-                  }),
+                  child: SizedBox(
+                    height: 34,
+                    child: ElevatedButton(
+                      onPressed: _dmLoading ? null : _openDM,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.buttonGrey,
+                        foregroundColor: AppColors.text,
+                        elevation: 0,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: _dmLoading
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Text('メッセージ', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 6),
                 SizedBox(
@@ -381,13 +411,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     border: Border.all(color: AppColors.textSecondary, width: 1.5),
                   ),
                   child: Icon(
-                    _tabController.index == 0 ? Icons.camera_alt_outlined : Icons.camera_outlined,
+                    _selectedTab == 0 ? Icons.camera_alt_outlined : Icons.camera_outlined,
                     size: 32, color: AppColors.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  _tabController.index == 0 ? 'まだ投稿がありません' : 'カメラで撮影した写真がありません',
+                  _selectedTab == 0 ? 'まだ投稿がありません' : 'カメラで撮影した写真がありません',
                   style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                 ),
               ],

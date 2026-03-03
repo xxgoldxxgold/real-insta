@@ -29,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
   RealtimeChannel? _dmChannel;
   Timer? _pollTimer;
   int _lastUnread = -1; // -1 = initial (don't notify on first load)
+  bool _didPromptPush = false;
 
   @override
   void initState() {
@@ -37,6 +38,37 @@ class _HomeScreenState extends State<HomeScreen> {
     _initUnreadAndStartPolling();
     _subscribeToDMs();
     PushNotificationService.initialize();
+    _maybePromptPushPermission();
+  }
+
+  void _maybePromptPushPermission() {
+    if (_didPromptPush) return;
+    if (!PushNotificationService.shouldPromptPermission()) return;
+    _didPromptPush = true;
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('通知を有効にする'),
+          content: const Text('DMの新着メッセージをプッシュ通知で受け取れます。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('後で'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                PushNotificationService.requestPermissionAndSubscribe();
+              },
+              child: const Text('許可する',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   @override

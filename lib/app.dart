@@ -33,6 +33,12 @@ class AppState extends ChangeNotifier {
   int unreadNotifications = 0;
   int unreadMessages = 0;
   int? requestedTab;
+  bool feedNeedsRefresh = false;
+
+  void requestFeedRefresh() {
+    feedNeedsRefresh = true;
+    notifyListeners();
+  }
 
   void setUnreadNotifications(int count) {
     unreadNotifications = count;

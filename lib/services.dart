@@ -4,8 +4,10 @@ import 'dart:typed_data';
 import 'dart:js_interop';
 import 'dart:html' as html;
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'firebase_options.dart';
 import 'models.dart';
 
 final supabase = Supabase.instance.client;
@@ -625,43 +627,79 @@ class HashtagService {
 }
 
 class PushNotificationService {
-  static bool _initialized = false;
+  static bool _subscribed = false;
   static StreamSubscription? _tokenRefreshSub;
 
+  /// Call from initState — if permission already granted, subscribe silently
   static Future<void> initialize() async {
-    if (_initialized) return;
-    _initialized = true;
-    if (!kIsWeb) return;
-
+    if (_subscribed || !kIsWeb) return;
     try {
+      if (!html.Notification.supported) {
+        debugPrint('[FCM] Notification not supported');
+        return;
+      }
+      final perm = html.Notification.permission;
+      debugPrint('[FCM] Current permission: $perm');
+      if (perm == 'granted') {
+        await _subscribe();
+      }
+    } catch (e) {
+      debugPrint('[FCM] Init error: $e');
+    }
+  }
+
+  /// Whether we should show the permission dialog
+  static bool shouldPromptPermission() {
+    if (!kIsWeb) return false;
+    if (!html.Notification.supported) return false;
+    if (html.window.navigator.serviceWorker == null) return false;
+    return html.Notification.permission == 'default';
+  }
+
+  /// Request permission then subscribe — MUST be called from user gesture (button tap)
+  static Future<bool> requestPermissionAndSubscribe() async {
+    if (!kIsWeb) return false;
+    try {
+      final permission = await html.Notification.requestPermission();
+      debugPrint('[FCM] requestPermission result: $permission');
+      if (permission != 'granted') return false;
+      await _subscribe();
+      return true;
+    } catch (e) {
+      debugPrint('[FCM] Permission request error: $e');
+      return false;
+    }
+  }
+
+  static Future<void> _subscribe() async {
+    if (_subscribed) return;
+    _subscribed = true;
+    try {
+      // Firebase init
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      debugPrint('[FCM] Firebase initialized');
+
       final messaging = FirebaseMessaging.instance;
 
-      // Request notification permission
-      final settings = await messaging.requestPermission(
-        alert: true, badge: true, sound: true,
-      );
-      if (settings.authorizationStatus != AuthorizationStatus.authorized) {
-        debugPrint('[FCM] Permission not granted');
-        return;
-      }
-
       // Get FCM token
-      final fcmToken = await messaging.getToken();
-      if (fcmToken == null || fcmToken.isEmpty) {
+      final token = await messaging.getToken();
+      debugPrint('[FCM] getToken result: ${token == null ? "null" : "${token.substring(0, 20)}..."}');
+      if (token == null || token.isEmpty) {
         debugPrint('[FCM] No token received');
+        _subscribed = false;
         return;
       }
-      debugPrint('[FCM] Token: ${fcmToken.substring(0, 20)}...');
 
-      // Send token to our PHP backend
-      await _registerToken(fcmToken);
+      // Register token with backend
+      await _registerToken(token);
 
       // Listen for token refresh
       _tokenRefreshSub ??= messaging.onTokenRefresh.listen((newToken) {
+        debugPrint('[FCM] Token refreshed');
         _registerToken(newToken);
       });
 
-      // Handle foreground messages
+      // Handle foreground messages — show browser notification
       FirebaseMessaging.onMessage.listen((RemoteMessage message) {
         debugPrint('[FCM] Foreground message: ${message.data}');
         final title = message.data['title'] ?? 'Real-Insta';
@@ -672,25 +710,30 @@ class PushNotificationService {
           }
         } catch (_) {}
       });
-    } catch (e) {
-      debugPrint('[FCM] Init error: $e');
+      debugPrint('[FCM] Subscribe complete');
+    } catch (e, st) {
+      debugPrint('[FCM] Subscribe error: $e\n$st');
+      _subscribed = false;
     }
   }
 
   static Future<void> _registerToken(String fcmToken) async {
     try {
       final authToken = supabase.auth.currentSession?.accessToken;
-      if (authToken == null) return;
-
-      final xhr = html.HttpRequest();
-      xhr.open('POST', 'https://real-insta.com/api/push-subscribe.php');
-      xhr.setRequestHeader('Content-Type', 'application/json');
-      xhr.setRequestHeader('Authorization', 'Bearer $authToken');
-      xhr.send(jsonEncode({
-        'token': fcmToken,
-        'platform': 'web',
-      }));
-      debugPrint('[FCM] Token registered');
+      if (authToken == null) {
+        debugPrint('[FCM] No auth token, skipping registration');
+        return;
+      }
+      final response = await html.HttpRequest.request(
+        'https://real-insta.com/api/push-subscribe.php',
+        method: 'POST',
+        requestHeaders: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $authToken',
+        },
+        sendData: jsonEncode({'token': fcmToken, 'platform': 'web'}),
+      );
+      debugPrint('[FCM] Token registered: ${response.status} ${response.responseText}');
     } catch (e) {
       debugPrint('[FCM] Token registration error: $e');
     }

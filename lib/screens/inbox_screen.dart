@@ -27,8 +27,11 @@ class _InboxScreenState extends State<InboxScreen> {
     try {
       final conversations = await DMService.getConversations();
       if (mounted) setState(() { _conversations = conversations; _loading = false; });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('読込エラー: $e')));
+      }
     }
   }
 
