@@ -650,7 +650,7 @@ class HashtagService {
   static Future<List<Map<String, dynamic>>> searchHashtags(String query) async {
     final data = await supabase
         .from('ri_hashtags')
-        .select('name')
+        .select('id, name')
         .ilike('name', '%${query.toLowerCase()}%')
         .limit(20);
     // Add post count for each hashtag
@@ -748,6 +748,20 @@ class PushNotificationService {
       _tokenRefreshSub ??= messaging.onTokenRefresh.listen((newToken) {
         debugPrint('[FCM] Token refreshed');
         _registerToken(newToken);
+      });
+
+      // Handle notification click from service worker postMessage
+      html.window.navigator.serviceWorker?.addEventListener('message', (event) {
+        try {
+          final me = event as html.MessageEvent;
+          final data = me.data;
+          if (data is Map && data['type'] == 'notification_click') {
+            final url = data['url']?.toString() ?? '/';
+            if (url.isNotEmpty && url != '/') {
+              html.window.location.hash = url;
+            }
+          }
+        } catch (_) {}
       });
 
       // Handle foreground messages — show browser notification manually
