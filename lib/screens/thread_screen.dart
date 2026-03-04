@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timeago/timeago.dart' as timeago;
 import '../constants.dart';
@@ -187,8 +188,77 @@ class _ThreadScreenState extends State<ThreadScreen> {
     );
   }
 
+  void _showMessageMenu(Message msg) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+            ),
+            ListTile(
+              leading: const Icon(Icons.flag_outlined, color: Colors.orange),
+              title: const Text('このメッセージを通報'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showReportMessageDialog(msg);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.content_copy, size: 22),
+              title: const Text('コピー'),
+              onTap: () {
+                Navigator.pop(ctx);
+                Clipboard.setData(ClipboardData(text: msg.content));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('コピーしました')));
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReportMessageDialog(Message msg) {
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('通報理由'),
+        children: ['spam', 'nudity', 'harassment', 'violence', 'other'].map((reason) {
+          final labels = {
+            'spam': 'スパム',
+            'nudity': '不適切なコンテンツ',
+            'harassment': 'ハラスメント',
+            'violence': '暴力',
+            'other': 'その他',
+          };
+          return SimpleDialogOption(
+            child: Text(labels[reason]!),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ReportService.reportUser(msg.senderId, reason, details: 'DM message: ${msg.content}');
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('通報しました')));
+              }
+            },
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   Widget _buildBubble(Message msg, bool isMe) {
-    return Align(
+    return GestureDetector(
+      onLongPress: isMe ? null : () => _showMessageMenu(msg),
+      child: Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
@@ -229,6 +299,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }

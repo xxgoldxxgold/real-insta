@@ -282,6 +282,14 @@ class _PostCardState extends State<PostCard> {
               )
             else ...[
               ListTile(
+                leading: const Icon(Icons.flag_outlined, color: Colors.orange),
+                title: const Text('通報'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showReportPostDialog(context, post.id);
+                },
+              ),
+              ListTile(
                 leading: const Icon(Icons.link),
                 title: const Text('リンクをコピー'),
                 onTap: () {
@@ -303,6 +311,34 @@ class _PostCardState extends State<PostCard> {
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showReportPostDialog(BuildContext context, String postId) {
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('通報理由'),
+        children: ['spam', 'nudity', 'harassment', 'violence', 'other'].map((reason) {
+          final labels = {
+            'spam': 'スパム',
+            'nudity': '不適切なコンテンツ',
+            'harassment': 'ハラスメント',
+            'violence': '暴力',
+            'other': 'その他',
+          };
+          return SimpleDialogOption(
+            child: Text(labels[reason]!),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ReportService.reportPost(postId, reason);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('通報しました')));
+              }
+            },
+          );
+        }).toList(),
       ),
     );
   }

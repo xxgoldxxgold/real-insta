@@ -1,3 +1,4 @@
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../constants.dart';
@@ -110,6 +111,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: const Text('ブロック解除', style: TextStyle(fontSize: 12)),
                   ),
                 )),
+          const Divider(height: 32),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text('サポート', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          ),
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: const Text('利用規約'),
+            trailing: const Icon(Icons.open_in_new, size: 18, color: AppColors.textSecondary),
+            onTap: () => html.window.open('https://real-insta.com/terms.html', '_blank'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.privacy_tip_outlined),
+            title: const Text('プライバシーポリシー'),
+            trailing: const Icon(Icons.open_in_new, size: 18, color: AppColors.textSecondary),
+            onTap: () => html.window.open('https://real-insta.com/privacy.html', '_blank'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.shield_outlined),
+            title: const Text('安全ガイド'),
+            subtitle: const Text('通報・ブロック・削除の方法', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.open_in_new, size: 18, color: AppColors.textSecondary),
+            onTap: () => html.window.open('https://real-insta.com/safety.html', '_blank'),
+          ),
           const Divider(height: 32),
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
