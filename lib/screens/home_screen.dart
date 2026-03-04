@@ -194,12 +194,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Auth guard: if user logged out, redirect to login
+    final uid = AuthService.userId;
+    if (uid == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.go('/login');
+      });
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
     final appState = context.watch<AppState>();
     if (appState.requestedTab != null) {
       _currentIndex = appState.requestedTab!;
       appState.requestedTab = null;
     }
-    final uid = AuthService.userId!;
 
     final screens = [
       const FeedScreen(),

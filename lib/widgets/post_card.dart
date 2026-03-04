@@ -202,6 +202,12 @@ class _PostCardState extends State<PostCard> {
                   onTap: _dmLoading ? () {} : () => _openDM(post.userId),
                 ),
                 const Spacer(),
+                _actionButton(
+                  icon: Icons.bookmark_border,
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存しました')));
+                  },
+                ),
               ],
             ),
           ),
@@ -267,7 +273,25 @@ class _PostCardState extends State<PostCard> {
               margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
             ),
-            if (post.userId == AuthService.userId)
+            if (post.userId == AuthService.userId) ...[
+              ListTile(
+                leading: const Icon(Icons.link),
+                title: const Text('リンクをコピー'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Clipboard.setData(ClipboardData(text: 'https://real-insta.com/#/post/${post.id}'));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('リンクをコピーしました')));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share_outlined),
+                title: const Text('シェア'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  Clipboard.setData(ClipboardData(text: 'https://real-insta.com/#/post/${post.id}'));
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('リンクをコピーしました')));
+                },
+              ),
               ListTile(
                 leading: const Icon(Icons.delete_outline, color: Colors.red),
                 title: const Text('削除', style: TextStyle(color: Colors.red)),
@@ -279,8 +303,8 @@ class _PostCardState extends State<PostCard> {
                     widget.onDeleted?.call();
                   }
                 },
-              )
-            else ...[
+              ),
+            ] else ...[
               ListTile(
                 leading: const Icon(Icons.flag_outlined, color: Colors.orange),
                 title: const Text('通報'),
