@@ -205,7 +205,9 @@ class _HomeScreenState extends State<HomeScreen> {
       const FeedScreen(),
       const ExploreScreen(),
       const InboxScreen(),
-      CameraScreen(key: _cameraKey, isActive: _currentIndex == 3),
+      _currentIndex == 3
+          ? CameraScreen(key: _cameraKey, isActive: true)
+          : const SizedBox.shrink(),
       ProfileScreen(userId: uid),
     ];
 
