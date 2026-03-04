@@ -13,7 +13,8 @@ import '../constants.dart';
 import '../services.dart';
 
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key});
+  final bool isActive;
+  const CameraScreen({super.key, this.isActive = false});
 
   @override
   State<CameraScreen> createState() => _CameraScreenState();
@@ -54,6 +55,7 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   void _autoOpenPicker() {
+    if (!widget.isActive) return;
     if (_pickerOpened || _imageBytes != null || _cameraActive) return;
     _pickerOpened = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
