@@ -12,6 +12,13 @@ import 'models.dart';
 
 final supabase = Supabase.instance.client;
 
+String get _apiBase {
+  if (kIsWeb) {
+    return html.window.location.origin;
+  }
+  return 'https://real-insta.com';
+}
+
 @JS('navigator.userAgent')
 external JSString get _jsUserAgent;
 
@@ -41,7 +48,7 @@ void _sendActivityPush({
         profile?['name']?.toString() ??
         'Someone';
     final xhr = html.HttpRequest();
-    xhr.open('POST', 'https://real-insta.com/api/notify-activity.php');
+    xhr.open('POST', '$_apiBase/api/notify-activity.php');
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.setRequestHeader('Authorization', 'Bearer $token');
     xhr.send(jsonEncode({
@@ -67,6 +74,16 @@ class AuthService {
     );
   }
 
+  /// Set signup_source for OAuth users after sign-in
+  static Future<void> ensureSignupSource() async {
+    try {
+      final user = currentUser;
+      if (user == null) return;
+      if (user.userMetadata?['signup_source'] != null) return;
+      await supabase.auth.updateUser(UserAttributes(data: {'signup_source': 'real-insta'}));
+    } catch (_) {}
+  }
+
   static Future<void> signInWithApple() async {
     await supabase.auth.signInWithOAuth(
       OAuthProvider.apple,
@@ -79,7 +96,7 @@ class AuthService {
   }
 
   static Future<void> signUpWithEmail(String email, String password) async {
-    await supabase.auth.signUp(email: email, password: password);
+    await supabase.auth.signUp(email: email, password: password, data: {'signup_source': 'real-insta'});
   }
 
   static Future<void> signOut() async {
@@ -94,11 +111,13 @@ class AuthService {
     await supabase.from('ri_notifications').delete().eq('actor_id', uid);
     await supabase.from('ri_likes').delete().eq('user_id', uid);
     await supabase.from('ri_comments').delete().eq('user_id', uid);
-    await supabase.from('ri_post_hashtags').delete().inFilter(
-      'post_id',
-      (await supabase.from('ri_posts').select('id').eq('user_id', uid) as List)
-          .map((r) => r['id'] as String).toList(),
-    );
+    final userPosts = await supabase.from('ri_posts').select('id').eq('user_id', uid) as List;
+    if (userPosts.isNotEmpty) {
+      await supabase.from('ri_post_hashtags').delete().inFilter(
+        'post_id',
+        userPosts.map((r) => r['id'] as String).toList(),
+      );
+    }
     await supabase.from('ri_posts').delete().eq('user_id', uid);
     await supabase.from('ri_follows').delete().eq('follower_id', uid);
     await supabase.from('ri_follows').delete().eq('following_id', uid);
@@ -108,7 +127,32 @@ class AuthService {
     await signOut();
   }
 
+  /// Ensure user profile exists in ri_profiles (called on login)
+  static Future<void> ensureUserProfile(User user) async {
+    try {
+      final existing = await supabase
+          .from('ri_profiles')
+          .select('id')
+          .eq('id', user.id)
+          .maybeSingle();
+      if (existing == null) {
+        await supabase.from('ri_profiles').upsert({
+          'id': user.id,
+          'display_name': user.userMetadata?['full_name'] ??
+              user.userMetadata?['name'] ??
+              (user.email != null ? user.email!.split('@').first : ''),
+          'avatar_url': user.userMetadata?['avatar_url'] ??
+              user.userMetadata?['picture'] ?? '',
+        }, onConflict: 'id');
+      }
+    } catch (_) {}
+  }
+
   static String get _redirectUrl {
+    if (kIsWeb) {
+      final origin = html.window.location.origin;
+      return '$origin/';
+    }
     return 'https://real-insta.com/';
   }
 }
@@ -172,10 +216,12 @@ class ProfileService {
   }
 
   static Future<List<Profile>> searchUsers(String query) async {
+    final escaped = query.replaceAll('%', '').replaceAll('_', '');
+    if (escaped.isEmpty) return [];
     final data = await supabase
         .from('ri_profiles')
         .select()
-        .or('username.ilike.%$query%,display_name.ilike.%$query%')
+        .or('username.ilike.%$escaped%,display_name.ilike.%$escaped%')
         .limit(20);
     return (data as List).map((e) => Profile.fromJson(e)).toList();
   }
@@ -241,33 +287,30 @@ class PostService {
 
     final postIds = data.map((j) => j['id'] as String).toList();
 
-    // Batch: get all likes counts, comments counts, and user's likes in parallel
-    final results = await Future.wait([
-      supabase.from('ri_likes').select('post_id').inFilter('post_id', postIds),
-      supabase.from('ri_comments').select('post_id').inFilter('post_id', postIds),
-      if (currentUserId != null)
-        supabase.from('ri_likes').select('post_id').inFilter('post_id', postIds).eq('user_id', currentUserId)
-      else
-        Future.value(<Map<String, dynamic>>[]),
-    ]);
-
-    // Count likes per post
-    final likesMap = <String, int>{};
-    for (final row in (results[0] as List)) {
-      final pid = row['post_id'] as String;
-      likesMap[pid] = (likesMap[pid] ?? 0) + 1;
+    // Batch: get likes/comments counts and user's likes in parallel
+    final countFutures = <Future>[];
+    for (final pid in postIds) {
+      countFutures.add(supabase.from('ri_likes').select('id').eq('post_id', pid).count(CountOption.exact));
+      countFutures.add(supabase.from('ri_comments').select('id').eq('post_id', pid).count(CountOption.exact));
     }
+    if (currentUserId != null) {
+      countFutures.add(supabase.from('ri_likes').select('post_id').inFilter('post_id', postIds).eq('user_id', currentUserId));
+    } else {
+      countFutures.add(Future.value(<Map<String, dynamic>>[]));
+    }
+    final results = await Future.wait(countFutures);
 
-    // Count comments per post
+    // Parse counts per post (pairs of likes, comments)
+    final likesMap = <String, int>{};
     final commentsMap = <String, int>{};
-    for (final row in (results[1] as List)) {
-      final pid = row['post_id'] as String;
-      commentsMap[pid] = (commentsMap[pid] ?? 0) + 1;
+    for (int i = 0; i < postIds.length; i++) {
+      likesMap[postIds[i]] = (results[i * 2] as PostgrestResponse).count;
+      commentsMap[postIds[i]] = (results[i * 2 + 1] as PostgrestResponse).count;
     }
 
     // User's liked posts
     final likedSet = <String>{};
-    for (final row in (results[2] as List)) {
+    for (final row in (results.last as List)) {
       likedSet.add(row['post_id'] as String);
     }
 
@@ -331,10 +374,12 @@ class PostService {
     // Step 1: Send request (network errors -> allow posting)
     String responseBody = '';
     try {
+      final token = supabase.auth.currentSession?.accessToken;
+      if (token == null) return;
       final xhr = await html.HttpRequest.request(
-        'https://real-insta.com/api/check-image.php',
+        '$_apiBase/api/check-image.php',
         method: 'POST',
-        requestHeaders: {'Content-Type': 'application/json'},
+        requestHeaders: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
         sendData: jsonEncode({'image': b64}),
       );
       responseBody = xhr.responseText ?? '';
@@ -363,7 +408,7 @@ class PostService {
   }
 
   static Future<void> deletePost(String postId) async {
-    await supabase.from('ri_posts').delete().eq('id', postId);
+    await supabase.from('ri_posts').delete().eq('id', postId).eq('user_id', AuthService.userId!);
   }
 
   static Future<bool> toggleLike(String postId, {String? postOwnerId}) async {
@@ -427,7 +472,7 @@ class CommentService {
   }
 
   static Future<void> deleteComment(String commentId) async {
-    await supabase.from('ri_comments').delete().eq('id', commentId);
+    await supabase.from('ri_comments').delete().eq('id', commentId).eq('user_id', AuthService.userId!);
   }
 }
 
@@ -644,7 +689,7 @@ class DMService {
       final token = supabase.auth.currentSession?.accessToken;
       if (token == null) return;
       final xhr = html.HttpRequest();
-      xhr.open('POST', 'https://real-insta.com/api/notify-dm.php');
+      xhr.open('POST', '$_apiBase/api/notify-dm.php');
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.setRequestHeader('Authorization', 'Bearer $token');
       xhr.send(jsonEncode({
@@ -696,6 +741,8 @@ class DMService {
   }
 
   static RealtimeChannel subscribeToAllMessages(void Function(Message) onMessage) {
+    final uid = AuthService.userId;
+    if (uid == null) return supabase.channel('all_messages_noop').subscribe();
     return supabase.channel('all_messages').onPostgresChanges(
       event: PostgresChangeEvent.insert,
       schema: 'public',
@@ -703,9 +750,10 @@ class DMService {
       callback: (payload) {
         try {
           final msg = Message.fromJson(payload.newRecord);
+          if (msg.senderId == uid) return;
           onMessage(msg);
         } catch (e) {
-          print('DM realtime parse error: $e, payload: ${payload.newRecord}');
+          debugPrint('DM realtime parse error: $e');
         }
       },
     ).subscribe();
@@ -868,7 +916,7 @@ class PushNotificationService {
         return;
       }
       final response = await html.HttpRequest.request(
-        'https://real-insta.com/api/push-subscribe.php',
+        '$_apiBase/api/push-subscribe.php',
         method: 'POST',
         requestHeaders: {
           'Content-Type': 'application/json',

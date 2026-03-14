@@ -50,7 +50,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
     setState(() { _query = query; _searching = true; });
 
     if (query.startsWith('#')) {
-      // Hashtag search - navigate
+      // Hashtag search - handled by onSubmitted, just show a hint
+      setState(() { _searching = false; _userResults = []; });
       return;
     }
 

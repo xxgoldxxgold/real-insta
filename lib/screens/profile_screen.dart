@@ -100,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       if (mounted) context.push('/thread/${conv.id}');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('DMエラー: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('DMの送信に失敗しました')));
       }
     } finally {
       if (mounted) setState(() => _dmLoading = false);
@@ -189,6 +189,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     if (_isMe && appState.feedNeedsRefresh) {
+      appState.feedNeedsRefresh = false;
       WidgetsBinding.instance.addPostFrameCallback((_) => _load());
     }
 

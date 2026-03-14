@@ -54,7 +54,12 @@ class _FeedScreenState extends State<FeedScreen> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('読み込みに失敗しました。下にスワイプして再試行してください')),
+        );
+      }
     }
   }
 

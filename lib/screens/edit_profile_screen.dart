@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants.dart';
-import '../models.dart';
 import '../services.dart';
 import '../widgets/user_avatar.dart';
 
@@ -41,6 +40,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         if (profile != null) {
           _usernameController.text = profile.username ?? '';
+          _originalUsername = profile.username;
           _displayNameController.text = profile.displayName ?? '';
           _bioController.text = profile.bio ?? '';
           _avatarUrl = profile.avatarUrl;
@@ -61,15 +61,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       await ProfileService.updateProfile(avatarUrl: url);
       setState(() => _avatarUrl = url);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラーが発生しました')));
     }
   }
 
+  String? _originalUsername;
+
   Future<void> _save() async {
+    final newUsername = _usernameController.text.trim();
+    if (newUsername.isNotEmpty && newUsername != _originalUsername) {
+      final taken = await ProfileService.isUsernameTaken(newUsername);
+      if (taken) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('このユーザー名は既に使用されています')));
+        return;
+      }
+    }
     setState(() => _saving = true);
     try {
       await ProfileService.updateProfile(
-        username: _usernameController.text.trim(),
+        username: newUsername,
         displayName: _displayNameController.text.trim(),
         bio: _bioController.text.trim(),
       );
@@ -78,7 +88,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         context.pop();
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラー: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('エラーが発生しました')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }

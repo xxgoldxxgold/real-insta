@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../app.dart';
-import '../constants.dart';
 import '../services.dart';
 
 class CameraScreen extends StatefulWidget {
@@ -22,16 +21,15 @@ class CameraScreen extends StatefulWidget {
 
 class _CameraScreenState extends State<CameraScreen> {
   Uint8List? _imageBytes;
-  String? _imageExt;
+
   final _captionController = TextEditingController();
   final _locationController = TextEditingController();
   final _transformController = TransformationController();
   bool _posting = false;
-  bool _pickerOpened = false;
   bool _fromCamera = false;
 
   // Aspect ratio state
-  double _aspectRatio = 1.0; // width / height
+  double _aspectRatio = 1.0;
   bool _isOriginalRatio = false;
   int _naturalW = 0;
   int _naturalH = 0;
@@ -41,9 +39,10 @@ class _CameraScreenState extends State<CameraScreen> {
   // Camera state
   bool _cameraActive = false;
   html.VideoElement? _video;
-  html.MediaStream? _stream;
-  String? _currentViewId;
+  html.MediaStream? _mediaStream;
   bool _facingUser = false;
+  String _viewId = '';
+  static int _viewCounter = 0;
 
   @override
   void dispose() {
@@ -54,24 +53,14 @@ class _CameraScreenState extends State<CameraScreen> {
     super.dispose();
   }
 
-  void _autoOpenPicker() {
-    if (!widget.isActive) return;
-    if (_pickerOpened || _imageBytes != null || _cameraActive) return;
-    _pickerOpened = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _pickImage(ImageSource.gallery);
-    });
-  }
-
   Future<void> _pickImage(ImageSource source) async {
     final picker = ImagePicker();
     final file = await picker.pickImage(source: source, maxWidth: 1080, imageQuality: 85);
     if (file == null) return;
     final bytes = await file.readAsBytes();
-    final ext = file.path.split('.').last.toLowerCase();
     setState(() {
       _imageBytes = bytes;
-      _imageExt = ext == 'png' ? 'png' : 'jpg';
+
       _fromCamera = source == ImageSource.camera;
       _aspectRatio = 1.0;
       _isOriginalRatio = false;
@@ -101,14 +90,11 @@ class _CameraScreenState extends State<CameraScreen> {
   void _toggleAspectRatio() {
     setState(() {
       if (_isOriginalRatio) {
-        // Back to square
         _aspectRatio = 1.0;
         _isOriginalRatio = false;
       } else {
-        // Switch to original (clamped to Instagram limits)
         if (_naturalW > 0 && _naturalH > 0) {
           double ratio = _naturalW / _naturalH;
-          // Instagram limits: 1.91:1 (landscape) to 4:5 (portrait)
           ratio = ratio.clamp(4.0 / 5.0, 1.91);
           _aspectRatio = ratio;
         }
@@ -120,40 +106,41 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Future<void> _startCamera() async {
     try {
-      final constraints = {
-        'video': {
-          'facingMode': _facingUser ? 'user' : 'environment',
-          'width': {'ideal': 1080},
-          'height': {'ideal': 1080},
-        },
+      final facing = _facingUser ? 'user' : 'environment';
+      final mirror = _facingUser ? 'scaleX(-1)' : 'none';
+
+      final mediaDevices = html.window.navigator.mediaDevices;
+      if (mediaDevices == null) throw Exception('mediaDevices not supported');
+
+      final stream = await mediaDevices.getUserMedia({
+        'video': {'facingMode': facing, 'width': {'ideal': 1080}, 'height': {'ideal': 1080}},
         'audio': false,
-      };
-      final stream = await html.window.navigator.mediaDevices!.getUserMedia(constraints);
-      _stream = stream;
+      });
 
       final video = html.VideoElement()
-        ..srcObject = stream
-        ..autoplay = true
-        ..muted = true
         ..setAttribute('playsinline', 'true')
-        ..style.width = '100%'
-        ..style.height = '100%'
-        ..style.objectFit = 'cover';
+        ..setAttribute('autoplay', 'true')
+        ..muted = true
+        ..style.cssText = 'width:100%;height:100%;object-fit:cover;transform:$mirror;background:black;';
+
+      video.srcObject = stream;
       _video = video;
+      _mediaStream = stream;
 
-      if (_facingUser) {
-        video.style.transform = 'scaleX(-1)';
-      }
-
-      final viewId = 'camera-${DateTime.now().millisecondsSinceEpoch}';
-      ui_web.platformViewRegistry.registerViewFactory(viewId, (int id) => video);
-      _currentViewId = viewId;
+      _viewCounter++;
+      _viewId = 'ri-camera-view-$_viewCounter';
+      // ignore: undefined_prefixed_name
+      ui_web.platformViewRegistry.registerViewFactory(_viewId, (int id) => video);
 
       if (mounted) setState(() => _cameraActive = true);
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      await video.play();
     } catch (e) {
+      _video = null;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('カメラにアクセスできません: $e')),
+          SnackBar(content: Text('カメラエラー: $e'), duration: const Duration(seconds: 5)),
         );
       }
     }
@@ -167,7 +154,6 @@ class _CameraScreenState extends State<CameraScreen> {
 
     final canvas = html.CanvasElement(width: w, height: h);
     final ctx = canvas.context2D;
-
     if (_facingUser) {
       ctx.translate(w.toDouble(), 0);
       ctx.scale(-1, 1);
@@ -182,7 +168,7 @@ class _CameraScreenState extends State<CameraScreen> {
     if (mounted) {
       setState(() {
         _imageBytes = Uint8List.fromList(bytes);
-        _imageExt = 'jpg';
+
         _fromCamera = true;
         _cameraActive = false;
         _aspectRatio = 1.0;
@@ -194,8 +180,15 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   void _stopCamera() {
-    _stream?.getTracks().forEach((track) => track.stop());
-    _stream = null;
+    try {
+      final stream = _mediaStream;
+      if (stream != null) {
+        for (final track in stream.getTracks()) {
+          track.stop();
+        }
+        _mediaStream = null;
+      }
+    } catch (_) {}
     _video = null;
   }
 
@@ -227,33 +220,28 @@ class _CameraScreenState extends State<CameraScreen> {
     final vpH = _vpH;
     if (vpW <= 0 || vpH <= 0) return _imageBytes!;
 
-    // BoxFit.cover: scale to fill viewport
     final cs = (vpW / imgW > vpH / imgH) ? vpW / imgW : vpH / imgH;
     final dispW = imgW * cs;
     final dispH = imgH * cs;
     final offX = (vpW - dispW) / 2;
     final offY = (vpH - dispH) / 2;
 
-    // InteractiveViewer transform
     final m = _transformController.value;
     final zoom = m.getMaxScaleOnAxis();
     final tx = m.entry(0, 3);
     final ty = m.entry(1, 3);
 
-    // Visible region in display coords → image coords
     var srcX = (-tx / zoom - offX) / cs;
     var srcY = (-ty / zoom - offY) / cs;
     var srcW = vpW / zoom / cs;
     var srcH = vpH / zoom / cs;
 
-    // Clamp to image bounds
     if (srcX < 0) { srcW += srcX; srcX = 0; }
     if (srcY < 0) { srcH += srcY; srcY = 0; }
     if (srcX + srcW > imgW) srcW = imgW - srcX;
     if (srcY + srcH > imgH) srcH = imgH - srcY;
     if (srcW < 1 || srcH < 1) return _imageBytes!;
 
-    // Output: 1080 wide, height proportional to aspect ratio
     const outW = 1080;
     final outH = (outW / _aspectRatio).round().clamp(1, 1350);
 
@@ -285,7 +273,6 @@ class _CameraScreenState extends State<CameraScreen> {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('投稿しました！')));
         setState(() {
           _imageBytes = null;
-          _pickerOpened = false;
           _captionController.clear();
           _locationController.clear();
         });
@@ -302,12 +289,8 @@ class _CameraScreenState extends State<CameraScreen> {
           backgroundColor: isAiBlock ? Colors.red.shade700 : null,
           duration: const Duration(seconds: 4),
         ));
-        // AI却下時は画像をリセットして別の写真を選べるようにする
         if (isAiBlock) {
-          setState(() {
-            _imageBytes = null;
-            // _pickerOpened は true のまま → 自動オープンせずピッカー画面表示
-          });
+          setState(() { _imageBytes = null; });
         }
       }
     } finally {
@@ -317,20 +300,26 @@ class _CameraScreenState extends State<CameraScreen> {
 
   @override
   Widget build(BuildContext context) {
-    _autoOpenPicker();
-
-    if (_cameraActive) return _buildCameraView();
+    if (_cameraActive) return _buildCameraUI();
 
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('新規投稿'),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.white,
+        elevation: 0,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: const Color(0xFFE5E7EB)),
+        ),
+        title: const Text('新規投稿', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
         actions: [
           if (_imageBytes != null)
             TextButton(
               onPressed: _posting ? null : _post,
               child: _posting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                  : const Text('シェア', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600, fontSize: 16)),
+                  : const Text('シェア', style: TextStyle(color: Color(0xFF0095F6), fontWeight: FontWeight.w600, fontSize: 16)),
             ),
         ],
       ),
@@ -338,89 +327,123 @@ class _CameraScreenState extends State<CameraScreen> {
     );
   }
 
-  Widget _buildCameraView() {
+  Widget _buildCameraUI() {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Stack(
+      body: Column(
         children: [
-          if (_currentViewId != null)
-            Positioned.fill(
-              child: HtmlElementView(viewType: _currentViewId!),
-            ),
-          Positioned(
-            top: 0, left: 0, right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
-                      onPressed: () {
-                        _stopCamera();
-                        setState(() => _cameraActive = false);
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.flip_camera_ios, color: Colors.white, size: 28),
-                      onPressed: _flipCamera,
-                    ),
-                  ],
+          // カメラ映像エリア
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: HtmlElementView(viewType: _viewId),
                 ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 0, left: 0, right: 0,
-            child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: 32),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    GestureDetector(
-                      onTap: () {
-                        _stopCamera();
-                        setState(() {
-                          _cameraActive = false;
-                          _pickerOpened = false;
-                        });
-                        _pickImage(ImageSource.gallery);
-                      },
-                      child: Container(
-                        width: 40, height: 40,
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.white, width: 2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.photo_library, color: Colors.white, size: 20),
+
+                // 上部コントロール
+                Positioned(
+                  top: 0, left: 0, right: 0,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _controlButton(
+                            child: const Icon(Icons.close, color: Colors.white, size: 20),
+                            onTap: () { _stopCamera(); if (mounted) setState(() => _cameraActive = false); },
+                          ),
+                          _controlButton(
+                            child: CustomPaint(
+                              size: const Size(20, 20),
+                              painter: _FlipIconPainter(),
+                            ),
+                            onTap: _flipCamera,
+                          ),
+                        ],
                       ),
                     ),
-                    GestureDetector(
-                      onTap: _capturePhoto,
-                      child: Container(
-                        width: 72, height: 72,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
-                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 下部コントロールバー
+          SafeArea(
+            top: false,
+            child: Container(
+              color: Colors.black,
+              padding: const EdgeInsets.only(top: 20, bottom: 24, left: 24, right: 24),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // ギャラリーボタン
+                  GestureDetector(
+                    onTap: () {
+                      _stopCamera();
+                      if (mounted) {
+                        setState(() { _cameraActive = false; });
+                        _pickImage(ImageSource.gallery);
+                      }
+                    },
+                    child: Container(
+                      width: 48, height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 2),
+                      ),
+                      child: CustomPaint(
+                        size: const Size(22, 22),
+                        painter: _GalleryIconPainter(),
+                      ),
+                    ),
+                  ),
+
+                  // シャッターボタン
+                  GestureDetector(
+                    onTap: _capturePhoto,
+                    child: Container(
+                      width: 72, height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                      ),
+                      child: Center(
                         child: Container(
-                          margin: const EdgeInsets.all(4),
+                          width: 58, height: 58,
                           decoration: const BoxDecoration(
-                            color: Colors.white,
                             shape: BoxShape.circle,
+                            color: Colors.white,
                           ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 40, height: 40),
-                  ],
-                ),
+                  ),
+
+                  // スペーサー
+                  const SizedBox(width: 48, height: 48),
+                ],
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _controlButton({required Widget child, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withValues(alpha: 0.4),
+        ),
+        child: Center(child: child),
       ),
     );
   }
@@ -430,35 +453,44 @@ class _CameraScreenState extends State<CameraScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // カメラアイコン（Next.js版と同じSVG風デザイン）
           Container(
-            width: 80, height: 80,
+            width: 96, height: 96,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              border: Border.all(color: AppColors.text, width: 2),
+              border: Border.all(color: const Color(0xFFE5E7EB), width: 2),
             ),
-            child: const Icon(Icons.camera_alt_outlined, size: 40),
+            child: Center(
+              child: CustomPaint(
+                size: const Size(40, 40),
+                painter: _CameraIconPainter(),
+              ),
+            ),
           ),
           const SizedBox(height: 20),
-          const Text('写真を選んでシェアしよう', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w300)),
-          const SizedBox(height: 24),
+          const Text(
+            '写真を撮ってシェアしよう',
+            style: TextStyle(fontSize: 14, color: Color(0xFF9CA3AF)),
+          ),
+          const SizedBox(height: 28),
           SizedBox(
-            width: 200,
+            width: 208,
             height: 44,
             child: ElevatedButton(
-              onPressed: () => _pickImage(ImageSource.gallery),
+              onPressed: _startCamera,
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
+                backgroundColor: const Color(0xFF0095F6),
                 foregroundColor: Colors.white,
                 elevation: 0,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: const Text('ライブラリから選択', style: TextStyle(fontWeight: FontWeight.w600)),
+              child: const Text('カメラを起動', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
             ),
           ),
           const SizedBox(height: 12),
           TextButton(
-            onPressed: _startCamera,
-            child: const Text('写真を撮る', style: TextStyle(color: AppColors.accent, fontWeight: FontWeight.w600)),
+            onPressed: () => _pickImage(ImageSource.gallery),
+            child: const Text('ライブラリから選択', style: TextStyle(color: Color(0xFF0095F6), fontWeight: FontWeight.w600, fontSize: 14)),
           ),
         ],
       ),
@@ -469,7 +501,7 @@ class _CameraScreenState extends State<CameraScreen> {
     return SingleChildScrollView(
       child: Column(
         children: [
-          // Image preview with aspect ratio toggle
+          // プレビュー画像（Next.js版と同じ正方形・黒背景）
           LayoutBuilder(
             builder: (context, constraints) {
               final w = constraints.maxWidth;
@@ -480,7 +512,6 @@ class _CameraScreenState extends State<CameraScreen> {
                 color: Colors.black,
                 child: Stack(
                   children: [
-                    // Image with pinch-to-zoom
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeOut,
@@ -495,23 +526,19 @@ class _CameraScreenState extends State<CameraScreen> {
                         ),
                       ),
                     ),
-                    // Aspect ratio toggle button (Instagram style)
                     Positioned(
-                      left: 12,
-                      bottom: 12,
+                      left: 12, bottom: 12,
                       child: GestureDetector(
                         onTap: _toggleAspectRatio,
                         child: Container(
-                          width: 32,
-                          height: 32,
+                          width: 32, height: 32,
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Icon(
                             _isOriginalRatio ? Icons.crop_square : Icons.fullscreen,
-                            color: Colors.white,
-                            size: 18,
+                            color: Colors.white, size: 18,
                           ),
                         ),
                       ),
@@ -521,43 +548,174 @@ class _CameraScreenState extends State<CameraScreen> {
               );
             },
           ),
+          // キャプション入力（Next.js版と同じスタイル）
           Padding(
             padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _captionController,
-              maxLines: 3,
-              maxLength: 300,
-              decoration: const InputDecoration(
-                hintText: 'キャプションを書く...',
-                border: InputBorder.none,
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: TextField(
+                controller: _captionController,
+                maxLines: 3,
+                maxLength: 300,
+                style: const TextStyle(fontSize: 14),
+                decoration: const InputDecoration(
+                  hintText: 'キャプションを入力...',
+                  hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.all(12),
+                  counterText: '',
+                ),
               ),
             ),
           ),
-          const Divider(height: 1),
+          // 場所を追加
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
               controller: _locationController,
+              style: const TextStyle(fontSize: 14),
               decoration: const InputDecoration(
                 hintText: '場所を追加',
-                prefixIcon: Icon(Icons.location_on_outlined),
+                hintStyle: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+                prefixIcon: Icon(Icons.location_on_outlined, color: Color(0xFF9CA3AF)),
                 border: InputBorder.none,
               ),
             ),
           ),
-          const Divider(height: 1),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
+          // 別の写真を選ぶ
           Padding(
             padding: const EdgeInsets.all(16),
-            child: TextButton(
-              onPressed: () => setState(() {
+            child: GestureDetector(
+              onTap: () => setState(() {
                 _imageBytes = null;
-                _pickerOpened = false;
               }),
-              child: const Text('写真を変更', style: TextStyle(color: AppColors.textSecondary)),
+              child: const Text(
+                '別の写真を選ぶ',
+                style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 14),
+              ),
             ),
           ),
         ],
       ),
     );
   }
+}
+
+// Next.js版のSVGカメラアイコンを再現
+class _CameraIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFD1D5DB)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final s = size.width / 24;
+
+    // カメラボディ
+    final body = RRect.fromRectAndRadius(
+      Rect.fromLTWH(1 * s, 6 * s, 22 * s, 15 * s),
+      Radius.circular(2 * s),
+    );
+    canvas.drawRRect(body, paint);
+
+    // レンズ部分の台形（上部）
+    final path = Path()
+      ..moveTo(8 * s, 6 * s)
+      ..lineTo(10 * s, 3 * s)
+      ..lineTo(14 * s, 3 * s)
+      ..lineTo(16 * s, 6 * s);
+    canvas.drawPath(path, paint);
+
+    // レンズ（円）
+    canvas.drawCircle(Offset(12 * s, 13 * s), 4 * s, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// Next.js版のフリップアイコンを再現
+class _FlipIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final s = size.width / 24;
+
+    final path = Path()
+      ..moveTo(16 * s, 3 * s)
+      ..lineTo(21 * s, 3 * s)
+      ..lineTo(21 * s, 8 * s);
+    canvas.drawPath(path, paint);
+
+    final path2 = Path()
+      ..moveTo(4 * s, 20 * s)
+      ..lineTo(21 * s, 3 * s);
+    canvas.drawPath(path2, paint);
+
+    final path3 = Path()
+      ..moveTo(8 * s, 21 * s)
+      ..lineTo(3 * s, 21 * s)
+      ..lineTo(3 * s, 16 * s);
+    canvas.drawPath(path3, paint);
+
+    final path4 = Path()
+      ..moveTo(20 * s, 4 * s)
+      ..lineTo(3 * s, 21 * s);
+    canvas.drawPath(path4, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+// Next.js版のギャラリーアイコンを再現
+class _GalleryIconPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final s = size.width / 24;
+    // オフセットで中央に
+    final ox = (size.width - 22 * s) / 2;
+    final oy = (size.height - 22 * s) / 2;
+
+    // 外枠
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(ox + 3 * s, oy + 3 * s, 18 * s, 18 * s),
+      Radius.circular(2 * s),
+    );
+    canvas.drawRRect(rect, paint);
+
+    // 太陽（丸）
+    canvas.drawCircle(Offset(ox + 8.5 * s, oy + 8.5 * s), 1.5 * s, paint);
+
+    // 山（ポリライン）
+    final path = Path()
+      ..moveTo(ox + 21 * s, oy + 15 * s)
+      ..lineTo(ox + 16 * s, oy + 10 * s)
+      ..lineTo(ox + 5 * s, oy + 21 * s);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

@@ -34,6 +34,16 @@ class _PostCardState extends State<PostCard> {
     _resolveImageRatio();
   }
 
+  @override
+  void didUpdateWidget(PostCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.post.id != widget.post.id) {
+      _liked = widget.post.isLiked;
+      _likesCount = widget.post.likesCount;
+      _resolveImageRatio();
+    }
+  }
+
   void _resolveImageRatio() {
     final provider = CachedNetworkImageProvider(widget.post.imageUrl);
     provider.resolve(const ImageConfiguration()).addListener(
@@ -81,7 +91,7 @@ class _PostCardState extends State<PostCard> {
       if (mounted) context.push('/thread/${conv.id}');
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('DMエラー: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('DMの送信に失敗しました')));
       }
     } finally {
       if (mounted) setState(() => _dmLoading = false);
@@ -297,6 +307,18 @@ class _PostCardState extends State<PostCard> {
                 title: const Text('削除', style: TextStyle(color: Colors.red)),
                 onTap: () async {
                   Navigator.pop(ctx);
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (c) => AlertDialog(
+                      title: const Text('投稿を削除'),
+                      content: const Text('この投稿を削除しますか？この操作は取り消せません。'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('キャンセル')),
+                        TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('削除', style: TextStyle(color: Colors.red))),
+                      ],
+                    ),
+                  );
+                  if (confirm != true) return;
                   await PostService.deletePost(post.id);
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('投稿を削除しました')));
